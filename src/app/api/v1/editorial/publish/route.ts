@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { revalidatePath } from "next/cache";
 import { auth } from "@/server/auth";
 import { prisma } from "@/server/db/client";
 import { hasPermission } from "@/server/policies/permissions";
@@ -8,6 +9,7 @@ export const runtime = "nodejs";
 const publishSchema = z.object({
   contentType: z.enum(["dish", "recipe"]),
   contentId: z.string().trim().min(1).max(128),
+  action: z.enum(["publish", "unpublish"]).default("publish"),
 });
 
 function errorResponse(
@@ -56,8 +58,113 @@ export async function POST(request: Request): Promise<Response> {
     return errorResponse(400, "INVALID_PUBLICATION", "Contenu à publier invalide.");
   }
 
-  const { contentType, contentId } = input.data;
+  const { contentType, contentId, action } = input.data;
   const result = await prisma.$transaction(async (transaction) => {
+    if (action === "unpublish") {
+      if (contentType === "dish") {
+        const dish = await transaction.dish.findUnique({
+          where: { id: contentId },
+          select: {
+            id: true,
+            name: true,
+            status: true,
+            recipes: {
+              where: { status: "PUBLISHED" },
+              select: { id: true, title: true, slug: true },
+            },
+          },
+        });
+        if (!dish) {
+          return errorResponse(404, "CONTENT_NOT_FOUND", "Le plat est introuvable.");
+        }
+        if (dish.status !== "PUBLISHED") {
+          return errorResponse(409, "NOT_PUBLISHED", "Ce plat n’est pas publié.");
+        }
+
+        const recipeIds = dish.recipes.map((recipe) => recipe.id);
+        await transaction.dish.update({
+          where: { id: dish.id },
+          data: { status: "DRAFT", publishedAt: null },
+        });
+        await transaction.dishImage.updateMany({
+          where: { dishId: dish.id, status: "PUBLISHED" },
+          data: { status: "DRAFT" },
+        });
+        if (recipeIds.length) {
+          await transaction.recipe.updateMany({
+            where: { id: { in: recipeIds } },
+            data: { status: "DRAFT", publishedAt: null },
+          });
+          await transaction.recipeImage.updateMany({
+            where: {
+              recipeId: { in: recipeIds },
+              status: "PUBLISHED",
+            },
+            data: { status: "DRAFT" },
+          });
+        }
+        await transaction.adminAuditLog.create({
+          data: {
+            actorId: session.user.id,
+            action: "editorial.unpublish",
+            targetType: "dish",
+            targetId: dish.id,
+            metadata: {
+              name: dish.name,
+              unpublishedRecipes: dish.recipes.map(({ id, title }) => ({
+                id,
+                title,
+              })),
+            },
+          },
+        });
+
+        return {
+          id: dish.id,
+          status: "DRAFT" as const,
+          revalidatePaths: [
+            "/",
+            ...dish.recipes.map((recipe) => `/recettes/${recipe.slug}`),
+          ],
+        };
+      }
+
+      const recipe = await transaction.recipe.findUnique({
+        where: { id: contentId },
+        select: { id: true, title: true, slug: true, status: true },
+      });
+      if (!recipe) {
+        return errorResponse(404, "CONTENT_NOT_FOUND", "La recette est introuvable.");
+      }
+      if (recipe.status !== "PUBLISHED") {
+        return errorResponse(409, "NOT_PUBLISHED", "Cette recette n’est pas publiée.");
+      }
+
+      await transaction.recipe.update({
+        where: { id: recipe.id },
+        data: { status: "DRAFT", publishedAt: null },
+      });
+      await transaction.recipeImage.updateMany({
+        where: { recipeId: recipe.id, status: "PUBLISHED" },
+        data: { status: "DRAFT" },
+      });
+      await transaction.adminAuditLog.create({
+        data: {
+          actorId: session.user.id,
+          action: "editorial.unpublish",
+          targetType: "recipe",
+          targetId: recipe.id,
+          metadata: { title: recipe.title },
+        },
+      });
+
+      return {
+        id: recipe.id,
+        status: "DRAFT" as const,
+        revalidatePaths: ["/", `/recettes/${recipe.slug}`],
+      };
+    }
+
     if (contentType === "dish") {
       const dish = await transaction.dish.findUnique({
         where: { id: contentId },
@@ -104,7 +211,11 @@ export async function POST(request: Request): Promise<Response> {
         },
       });
 
-      return { id: dish.id, status: "PUBLISHED" as const };
+      return {
+        id: dish.id,
+        status: "PUBLISHED" as const,
+        revalidatePaths: ["/"],
+      };
     }
 
     const recipe = await transaction.recipe.findUnique({
@@ -112,6 +223,7 @@ export async function POST(request: Request): Promise<Response> {
       select: {
         id: true,
         title: true,
+        slug: true,
         status: true,
         description: true,
         dish: { select: { status: true } },
@@ -162,12 +274,19 @@ export async function POST(request: Request): Promise<Response> {
       },
     });
 
-    return { id: recipe.id, status: "PUBLISHED" as const };
+    return {
+      id: recipe.id,
+      status: "PUBLISHED" as const,
+      revalidatePaths: ["/", `/recettes/${recipe.slug}`],
+    };
   });
 
   if (result instanceof Response) {
     return result;
   }
 
-  return Response.json({ data: result });
+  result.revalidatePaths.forEach((path) => revalidatePath(path));
+  return Response.json({
+    data: { id: result.id, status: result.status },
+  });
 }

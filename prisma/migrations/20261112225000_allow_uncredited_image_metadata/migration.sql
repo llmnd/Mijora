@@ -1,0 +1,14 @@
+ALTER TABLE "DishImage"
+  ALTER COLUMN "creator" DROP NOT NULL,
+  ALTER COLUMN "provenance" DROP NOT NULL,
+  ALTER COLUMN "license" DROP NOT NULL;
+
+ALTER TABLE "RecipeImage"
+  ALTER COLUMN "creator" DROP NOT NULL,
+  ALTER COLUMN "provenance" DROP NOT NULL,
+  ALTER COLUMN "license" DROP NOT NULL;
+
+ALTER TABLE "IngredientImage"
+  ALTER COLUMN "creator" DROP NOT NULL,
+  ALTER COLUMN "provenance" DROP NOT NULL,
+  ALTER COLUMN "license" DROP NOT NULL;

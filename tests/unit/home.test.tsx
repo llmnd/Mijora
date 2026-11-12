@@ -1,4 +1,5 @@
 import { render, screen } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const homeMocks = vi.hoisted(() => ({
@@ -44,11 +45,11 @@ describe("home page", () => {
     expect(
       screen.getByRole("heading", {
         level: 1,
-        name: /l’inspiration pour ce que l’on cuisine/i,
+        name: /le goût des bonnes idées/i,
       }),
     ).toBeInTheDocument();
     expect(
-      screen.getByText(/les premières recettes arrivent bientôt/i),
+      screen.getByText(/aucun plat ni recette n’est publié pour le moment/i),
     ).toBeInTheDocument();
     expect(
       screen.getByRole("navigation", { name: "Navigation principale" }),
@@ -66,6 +67,12 @@ describe("home page", () => {
         cookingTimeMinutes: 45,
         servings: 4,
         dish: { name: "Yassa" },
+        ingredients: [
+          {
+            isOptional: false,
+            ingredient: { id: "onion", name: "Oignon" },
+          },
+        ],
         images: [
           {
             storageKey: "recipes/image.jpg",
@@ -80,19 +87,31 @@ describe("home page", () => {
     expect(
       screen.getByRole("link", { name: "Voir la recette" }),
     ).toHaveAttribute("href", "/recettes/yassa-au-poulet");
-    expect(screen.getByText("Yassa au poulet")).toBeInTheDocument();
+    expect(
+      screen.getByRole("heading", { name: "Yassa au poulet" }),
+    ).toBeInTheDocument();
     expect(
       screen.getByRole("img", { name: "Yassa servi dans un plat" }),
     ).toHaveAttribute("src", "https://images.example/signed");
     expect(homeMocks.recipeFindMany).toHaveBeenCalledWith(
       expect.objectContaining({
         where: { status: "PUBLISHED", dish: { status: "PUBLISHED" } },
-        take: 6,
+        select: expect.objectContaining({
+          ingredients: {
+            orderBy: { position: "asc" },
+            select: {
+              isOptional: true,
+              ingredient: { select: { id: true, name: true } },
+            },
+          },
+        }),
+        take: 12,
       }),
     );
   });
 
   it("shows a published dish on the homepage even when it has no published recipe", async () => {
+    const user = userEvent.setup();
     homeMocks.dishFindMany.mockResolvedValue([
       {
         id: "dish-1",
@@ -121,15 +140,26 @@ describe("home page", () => {
       screen.getByText("La recette détaillée arrive bientôt."),
     ).toBeInTheDocument();
     expect(
-      screen.getByRole("link", { name: "Découvrir les plats" }),
+      screen.getByRole("link", { name: "Découvrir le catalogue" }),
     ).toHaveAttribute("href", "#plats");
     expect(
       screen.getByRole("img", { name: "Ceebu jën servi avec ses légumes" }),
     ).toHaveAttribute("src", "https://images.example/signed");
+    const suggestionButton = screen.getByRole("button", {
+      name: "Trouver une idée",
+    });
+    expect(suggestionButton).toBeEnabled();
+    await user.click(suggestionButton);
+    expect(
+      screen.getByRole("link", { name: "Découvrir ce plat" }),
+    ).toHaveAttribute("href", "#plats");
+    expect(
+      screen.getByText(/recette détaillée de ce plat n’est pas encore disponible/i),
+    ).toBeInTheDocument();
     expect(homeMocks.dishFindMany).toHaveBeenCalledWith(
       expect.objectContaining({
         where: { status: "PUBLISHED" },
-        take: 6,
+        take: 12,
       }),
     );
   });

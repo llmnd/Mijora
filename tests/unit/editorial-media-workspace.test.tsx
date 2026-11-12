@@ -42,6 +42,10 @@ describe("Editorial media workspace", () => {
       <EditorialContentWorkspace initialDishes={[]} initialTargets={[]} />,
     );
 
+    const createDishSummary = screen.getByText("Créer un plat");
+    expect(createDishSummary.closest("details")).not.toHaveAttribute("open");
+    await user.click(createDishSummary);
+
     fireEvent.change(screen.getByLabelText("Nom du plat"), {
       target: { value: "Ceebu jën" },
     });
@@ -68,6 +72,7 @@ describe("Editorial media workspace", () => {
       "Plat enregistré en brouillon. Il est prêt à recevoir une image.",
     );
 
+    await user.click(screen.getByText("Ajouter une image"));
     const contentSelect = screen.getByLabelText(
       "Associer l’image à un contenu",
     );
@@ -103,6 +108,7 @@ describe("Editorial media workspace", () => {
       />,
     );
 
+    await user.click(screen.getByText("Créer une recette"));
     fireEvent.change(screen.getByLabelText("Plat associé"), {
       target: { value: "dish-1" },
     });
@@ -139,6 +145,7 @@ describe("Editorial media workspace", () => {
 
     await user.click(screen.getByRole("button", { name: "Créer la recette" }));
     await screen.findByText(/recette enregistrée en brouillon/i);
+    await user.click(screen.getByText("Ajouter une image"));
     await user.selectOptions(
       screen.getByLabelText("Associer l’image à un contenu"),
       "recipe:recipe-1",

@@ -143,18 +143,18 @@ export function ImageUploadForm({
       </label>
 
       <label className="media-upload-field">
-        <span>Créateur ou photographe</span>
-        <input autoComplete="name" maxLength={200} name="creator" required />
+        <span>Créateur ou photographe (facultatif)</span>
+        <input autoComplete="name" maxLength={200} name="creator" />
       </label>
 
       <label className="media-upload-field">
-        <span>Provenance</span>
-        <textarea maxLength={2000} name="provenance" required rows={3} />
+        <span>Provenance ou source (facultatif)</span>
+        <textarea maxLength={2000} name="provenance" rows={3} />
       </label>
 
       <label className="media-upload-field">
-        <span>Licence ou autorisation</span>
-        <input maxLength={200} name="license" required />
+        <span>Licence ou autorisation (facultatif)</span>
+        <input maxLength={200} name="license" />
       </label>
 
       <label className="media-upload-field">
@@ -171,6 +171,12 @@ export function ImageUploadForm({
         <span>Description alternative (facultatif)</span>
         <textarea maxLength={500} name="altText" rows={2} />
       </label>
+
+      <p className="media-upload-hint">
+        Pour vos propres images, vous pouvez laisser les champs de crédit vides.
+        Pour un visuel tiers, indiquez les informations de droits dont vous
+        disposez.
+      </p>
 
       <button
         className="media-upload-submit"

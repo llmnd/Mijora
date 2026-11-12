@@ -417,9 +417,9 @@ model DishImage {
   dishId           String
   storageKey       String
   kind             MediaKind
-  creator          String
-  provenance       String
-  license          String
+  creator          String?
+  provenance       String?
+  license          String?
   attribution      String?
   usageTerms       String?
   altText          String?
@@ -441,9 +441,9 @@ model RecipeImage {
   recipeId         String
   storageKey       String
   kind             MediaKind
-  creator          String
-  provenance       String
-  license          String
+  creator          String?
+  provenance       String?
+  license          String?
   attribution      String?
   usageTerms       String?
   altText          String?
@@ -465,9 +465,9 @@ model IngredientImage {
   ingredientId     String
   storageKey       String
   kind             MediaKind
-  creator          String
-  provenance       String
-  license          String
+  creator          String?
+  provenance       String?
+  license          String?
   attribution      String?
   usageTerms       String?
   altText          String?

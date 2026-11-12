@@ -8,9 +8,16 @@ const routeMocks = vi.hoisted(() => ({
   getSession: vi.fn(),
   hasPermission: vi.fn(),
   recipeFindUnique: vi.fn(),
+  recipeFindMany: vi.fn(),
   recipeImageUpdateMany: vi.fn(),
   recipeUpdate: vi.fn(),
+  recipeUpdateMany: vi.fn(),
+  revalidatePath: vi.fn(),
   transaction: vi.fn(),
+}));
+
+vi.mock("next/cache", () => ({
+  revalidatePath: routeMocks.revalidatePath,
 }));
 
 vi.mock("@/server/auth", () => ({
@@ -51,6 +58,7 @@ function createRequest(body: unknown): Request {
 
 describe("POST /api/v1/editorial/publish", () => {
   beforeEach(() => {
+    vi.clearAllMocks();
     vi.stubEnv("BETTER_AUTH_URL", "https://mijora.example");
     routeMocks.getSession.mockResolvedValue({
       user: { id: "admin-1", role: "admin" },
@@ -68,6 +76,7 @@ describe("POST /api/v1/editorial/publish", () => {
     routeMocks.recipeFindUnique.mockResolvedValue({
       id: "recipe-1",
       title: "Yassa au poulet",
+      slug: "yassa-au-poulet",
       status: "DRAFT",
       description: "Une recette familiale de poulet aux oignons et au citron.",
       dish: { status: "PUBLISHED" },
@@ -76,6 +85,8 @@ describe("POST /api/v1/editorial/publish", () => {
       steps: [{ id: "step-1" }],
     });
     routeMocks.recipeUpdate.mockResolvedValue({});
+    routeMocks.recipeUpdateMany.mockResolvedValue({ count: 1 });
+    routeMocks.recipeFindMany.mockResolvedValue([]);
     routeMocks.recipeImageUpdateMany.mockResolvedValue({ count: 1 });
     routeMocks.auditCreate.mockResolvedValue({});
     routeMocks.transaction.mockImplementation(async (callback) =>
@@ -87,8 +98,10 @@ describe("POST /api/v1/editorial/publish", () => {
         },
         dishImage: { updateMany: routeMocks.dishImageUpdateMany },
         recipe: {
+          findMany: routeMocks.recipeFindMany,
           findUnique: routeMocks.recipeFindUnique,
           update: routeMocks.recipeUpdate,
+          updateMany: routeMocks.recipeUpdateMany,
         },
         recipeImage: { updateMany: routeMocks.recipeImageUpdateMany },
       }),
@@ -209,6 +222,118 @@ describe("POST /api/v1/editorial/publish", () => {
 
     expect(response.status).toBe(409);
     expect(routeMocks.recipeUpdate).not.toHaveBeenCalled();
+    expect(routeMocks.auditCreate).not.toHaveBeenCalled();
+  });
+
+  it("unpublishes a recipe, its public image, and its cached pages", async () => {
+    routeMocks.recipeFindUnique.mockResolvedValue({
+      id: "recipe-1",
+      title: "Yassa au poulet",
+      slug: "yassa-au-poulet",
+      status: "PUBLISHED",
+    });
+
+    const response = await POST(
+      createRequest({
+        contentType: "recipe",
+        contentId: "recipe-1",
+        action: "unpublish",
+      }),
+    );
+    const result = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(result.data).toEqual({ id: "recipe-1", status: "DRAFT" });
+    expect(routeMocks.recipeUpdate).toHaveBeenCalledWith({
+      where: { id: "recipe-1" },
+      data: { status: "DRAFT", publishedAt: null },
+    });
+    expect(routeMocks.recipeImageUpdateMany).toHaveBeenCalledWith({
+      where: { recipeId: "recipe-1", status: "PUBLISHED" },
+      data: { status: "DRAFT" },
+    });
+    expect(routeMocks.auditCreate).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          action: "editorial.unpublish",
+          targetType: "recipe",
+          targetId: "recipe-1",
+        }),
+      }),
+    );
+    expect(routeMocks.revalidatePath).toHaveBeenCalledWith("/");
+    expect(routeMocks.revalidatePath).toHaveBeenCalledWith(
+      "/recettes/yassa-au-poulet",
+    );
+  });
+
+  it("also unpublishes public recipes when their dish is unpublished", async () => {
+    routeMocks.dishFindUnique.mockResolvedValue({
+      id: "dish-1",
+      name: "Yassa",
+      status: "PUBLISHED",
+      recipes: [
+        {
+          id: "recipe-1",
+          title: "Yassa au poulet",
+          slug: "yassa-au-poulet",
+        },
+      ],
+    });
+
+    const response = await POST(
+      createRequest({
+        contentType: "dish",
+        contentId: "dish-1",
+        action: "unpublish",
+      }),
+    );
+    const result = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(result.data).toEqual({ id: "dish-1", status: "DRAFT" });
+    expect(routeMocks.recipeUpdateMany).toHaveBeenCalledWith({
+      where: { id: { in: ["recipe-1"] } },
+      data: { status: "DRAFT", publishedAt: null },
+    });
+    expect(routeMocks.recipeImageUpdateMany).toHaveBeenCalledWith({
+      where: {
+        recipeId: { in: ["recipe-1"] },
+        status: "PUBLISHED",
+      },
+      data: { status: "DRAFT" },
+    });
+    expect(routeMocks.auditCreate).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          action: "editorial.unpublish",
+          targetType: "dish",
+          targetId: "dish-1",
+          metadata: {
+            name: "Yassa",
+            unpublishedRecipes: [
+              { id: "recipe-1", title: "Yassa au poulet" },
+            ],
+          },
+        }),
+      }),
+    );
+    expect(routeMocks.revalidatePath).toHaveBeenCalledWith(
+      "/recettes/yassa-au-poulet",
+    );
+  });
+
+  it("does not change a draft when asked to unpublish it", async () => {
+    const response = await POST(
+      createRequest({
+        contentType: "dish",
+        contentId: "dish-1",
+        action: "unpublish",
+      }),
+    );
+
+    expect(response.status).toBe(409);
+    expect(routeMocks.dishUpdate).not.toHaveBeenCalled();
     expect(routeMocks.auditCreate).not.toHaveBeenCalled();
   });
 });

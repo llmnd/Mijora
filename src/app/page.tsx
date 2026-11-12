@@ -1,6 +1,8 @@
+import Link from "next/link";
 import { connection } from "next/server";
 import { ActionLink } from "@/components/ui/action-link";
 import { SiteHeader } from "@/components/site-header";
+import { RecipeInspiration } from "@/features/discovery/recipe-inspiration";
 import { PublicSearch } from "@/features/search/public-search";
 import { createSignedImageUrl } from "@/lib/neon-object-storage";
 import { prisma } from "@/server/db/client";
@@ -29,7 +31,7 @@ export default async function HomePage() {
         },
       },
       orderBy: [{ publishedAt: "desc" }, { createdAt: "desc" }],
-      take: 6,
+      take: 12,
     }),
     prisma.recipe.findMany({
       where: {
@@ -45,6 +47,13 @@ export default async function HomePage() {
         cookingTimeMinutes: true,
         servings: true,
         dish: { select: { name: true } },
+        ingredients: {
+          orderBy: { position: "asc" },
+          select: {
+            isOptional: true,
+            ingredient: { select: { id: true, name: true } },
+          },
+        },
         images: {
           where: { status: "PUBLISHED" },
           orderBy: [{ position: "asc" }, { createdAt: "desc" }],
@@ -53,7 +62,7 @@ export default async function HomePage() {
         },
       },
       orderBy: [{ publishedAt: "desc" }, { createdAt: "desc" }],
-      take: 6,
+      take: 12,
     }),
   ]);
 
@@ -88,26 +97,91 @@ export default async function HomePage() {
     : recipeCards.length
       ? { href: "#recettes", label: "Découvrir les recettes" }
       : { href: "#approche", label: "Découvrir la démarche" };
+  const featuredRecipe = recipeCards[0];
+  const featuredDish = dishCards[0];
+  const heroImage = featuredRecipe?.imageUrl ?? featuredDish?.imageUrl;
+  const featuredTitle = featuredRecipe?.title ?? featuredDish?.name;
+  const recipeIdeas = recipeCards.map((recipe) => ({
+    id: recipe.id,
+    title: recipe.title,
+    slug: recipe.slug,
+    description: recipe.description,
+    dishName: recipe.dish.name,
+    imageUrl: recipe.imageUrl,
+    imageAlt: recipe.imageAlt,
+    preparationTimeMinutes: recipe.preparationTimeMinutes,
+    cookingTimeMinutes: recipe.cookingTimeMinutes,
+    ingredients: recipe.ingredients.map(({ ingredient, isOptional }) => ({
+      id: ingredient.id,
+      name: ingredient.name,
+      isOptional,
+    })),
+  }));
+  const dishIdeas = dishCards.map((dish) => ({
+    id: dish.id,
+    title: dish.name,
+    slug: null,
+    description: dish.description,
+    dishName: dish.name,
+    imageUrl: dish.imageUrl,
+    imageAlt: dish.imageAlt,
+    preparationTimeMinutes: null,
+    cookingTimeMinutes: null,
+    ingredients: [],
+    isDishOnly: true,
+  }));
 
   return (
-    <main className="page-shell">
+    <main className="page-shell homepage">
       <SiteHeader />
 
       <section aria-labelledby="hero-title" className="hero">
-        <p className="eyebrow">Découverte culinaire · Sénégal</p>
-        <h1 aria-label="L’inspiration pour ce que l’on cuisine." id="hero-title">
-          L’inspiration pour
-          <br />
-          <span>ce que l’on cuisine.</span>
-        </h1>
-        <p className="hero-copy">
-          Mijora explore les plats, les recettes et les ingrédients avec soin,
-          pour vous aider à trouver votre prochaine idée de repas.
-        </p>
-        <ActionLink href={discoveryLink.href}>
-          {discoveryLink.label} <span aria-hidden="true">↘</span>
-        </ActionLink>
+        {heroImage ? (
+          // Signed Neon URLs are branch-scoped and must load directly in the browser.
+          // eslint-disable-next-line @next/next/no-img-element
+          <img
+            alt=""
+            aria-hidden="true"
+            className="hero-image"
+            fetchPriority="high"
+            src={heroImage}
+          />
+        ) : null}
+        <div className="hero-content">
+          <p className="eyebrow">Découverte culinaire · Sénégal</p>
+          <h1 id="hero-title">
+            Le goût des
+            <br />
+            <span>bonnes idées.</span>
+          </h1>
+          <p className="hero-copy">
+            Des plats qui racontent, des recettes pour se retrouver. Trouvez
+            l’inspiration pour votre prochaine table.
+          </p>
+          <div className="hero-actions">
+            <ActionLink href={discoveryLink.href}>
+              Découvrir le catalogue <span aria-hidden="true">↗</span>
+            </ActionLink>
+            <a className="hero-text-link" href="#recherche">
+              Trouver une idée <span aria-hidden="true">↓</span>
+            </a>
+          </div>
+        </div>
+        {featuredTitle ? (
+          <a
+            className="hero-feature"
+            href={
+              featuredRecipe ? `/recettes/${featuredRecipe.slug}` : "#plats"
+            }
+          >
+            <span>À découvrir</span>
+            <strong>{featuredTitle}</strong>
+            <span aria-hidden="true">↗</span>
+          </a>
+        ) : null}
       </section>
+
+      <RecipeInspiration recipes={recipeIdeas} dishes={dishIdeas} />
 
       <PublicSearch />
 
@@ -240,19 +314,29 @@ export default async function HomePage() {
         id="approche"
       >
         <div className="approach-heading">
-          <p className="eyebrow">Une autre façon de chercher</p>
-          <h2 id="approach-title">De l’envie à l’idée.</h2>
+          <p className="eyebrow">Notre intention</p>
+          <h2 id="approach-title">La cuisine nous rapproche.</h2>
         </div>
         <p className="approach-copy">
-          Parcourez des recettes reliées à leur plat, inspirez-vous des
-          ingrédients et des étapes, puis cuisinez à votre rythme. Chaque
-          contenu est vérifié avant publication.
+          Mijora célèbre les cuisines du Sénégal et celles qui viendront
+          ensuite. Des histoires, des plats et des recettes soigneusement
+          vérifiés, pour transmettre le goût de cuisiner et de partager.
         </p>
       </section>
 
       <footer className="site-footer" id="projet">
-        <span className="footer-brand">mijora.</span>
-        <p>Une plateforme de découverte culinaire en construction.</p>
+        <div className="footer-identity">
+          <Link aria-label="Mijora, accueil" className="footer-brand" href="/">
+            mijora.
+          </Link>
+          <p>Les cuisines d’ici, les idées à partager.</p>
+        </div>
+        <nav aria-label="Navigation de pied de page" className="footer-links">
+          <a href="#plats">Les plats</a>
+          <a href="#recettes">Les recettes</a>
+          <a href="#approche">Notre intention</a>
+        </nav>
+        <p className="footer-credit">Pensé au Sénégal · Fait pour être partagé</p>
       </footer>
     </main>
   );

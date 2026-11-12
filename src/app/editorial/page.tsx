@@ -4,7 +4,10 @@ import { SiteHeader } from "@/components/site-header";
 import {
   EditorialContentWorkspace,
 } from "@/features/editorial/editorial-content-workspace";
-import { PublishButton } from "@/features/editorial/publish-button";
+import {
+  EditorialCatalog,
+  type EditorialCatalogItem,
+} from "@/features/editorial/editorial-catalog";
 import type { EditorialMediaTarget } from "@/features/media/editorial-media-workspace";
 import type { MediaOwnerType } from "@/features/media/types";
 import { createSignedImageUrl } from "@/lib/neon-object-storage";
@@ -21,7 +24,17 @@ export default async function EditorialPage() {
     redirect("/");
   }
 
-  const [dishes, ingredients, recipes, recentDishes, recentRecipes] = await Promise.all([
+  const [
+    dishes,
+    ingredients,
+    recipes,
+    recentDishes,
+    recentRecipes,
+    draftDishCount,
+    draftRecipeCount,
+    publishedDishCount,
+    publishedRecipeCount,
+  ] = await Promise.all([
     prisma.dish.findMany({
       select: { id: true, name: true },
       orderBy: { createdAt: "desc" },
@@ -90,6 +103,10 @@ export default async function EditorialPage() {
       orderBy: { createdAt: "desc" },
       take: 12,
     }),
+    prisma.dish.count({ where: { status: "DRAFT" } }),
+    prisma.recipe.count({ where: { status: "DRAFT" } }),
+    prisma.dish.count({ where: { status: "PUBLISHED" } }),
+    prisma.recipe.count({ where: { status: "PUBLISHED" } }),
   ]);
 
   const targets: EditorialMediaTarget[] = [
@@ -133,147 +150,88 @@ export default async function EditorialPage() {
     }),
   );
   const canPublish = hasPermission(session.user.role, "editorial:publish");
+  const catalogItems: EditorialCatalogItem[] = [
+    ...dishPreviews.map((dish) => {
+      const image = dish.images[0];
+      const source = dish.sources[0]?.source;
+      return {
+        id: dish.id,
+        contentType: "dish" as const,
+        title: dish.name,
+        subtitle: "Plat sénégalais",
+        description: dish.description,
+        status: dish.status,
+        imageUrl: dish.imageUrl,
+        imageAlt: image?.altText ?? null,
+        imageAttribution: image?.attribution ?? null,
+        imageProvenance: image?.provenance ?? null,
+        imageLicense: image?.license ?? null,
+        source: source ?? null,
+        href: null,
+      };
+    }),
+    ...recipePreviews.map((recipe) => {
+      const image = recipe.images[0];
+      const source = recipe.sources[0]?.source;
+      return {
+        id: recipe.id,
+        contentType: "recipe" as const,
+        title: recipe.title,
+        subtitle: `Plat · ${recipe.dish.name}`,
+        description: recipe.description,
+        status: recipe.status,
+        imageUrl: recipe.imageUrl,
+        imageAlt: image?.altText ?? null,
+        imageAttribution: image?.attribution ?? null,
+        imageProvenance: image?.provenance ?? null,
+        imageLicense: image?.license ?? null,
+        source: source ?? null,
+        href:
+          recipe.status === "PUBLISHED" ? `/recettes/${recipe.slug}` : null,
+      };
+    }),
+  ];
 
   return (
     <main className="page-shell editorial-page">
       <SiteHeader />
       <section aria-labelledby="editorial-title" className="editorial-intro">
-        <p className="eyebrow">Contribution · Mijora</p>
-        <h1 id="editorial-title">Espace éditorial</h1>
+        <p className="eyebrow">Administration · Mijora</p>
+        <h1 id="editorial-title">Votre catalogue, en toute simplicité.</h1>
         <p>
-          Créez des plats et des recettes, ajoutez des visuels correctement
-          crédités, puis publiez les contenus vérifiés sur l’accueil.
+          Retrouvez vos contenus, recherchez par nom ou statut, puis publiez ou
+          retirez-les de l’accueil. Les formulaires restent fermés jusqu’à ce
+          que vous en ayez besoin.
         </p>
+        <div className="editorial-overview" aria-label="Résumé du catalogue">
+          <div className="editorial-overview-card">
+            <span>Brouillons</span>
+            <strong>{draftDishCount + draftRecipeCount}</strong>
+            <small>plats et recettes à compléter</small>
+          </div>
+          <div className="editorial-overview-card">
+            <span>En ligne</span>
+            <strong>{publishedDishCount + publishedRecipeCount}</strong>
+            <small>plats et recettes publiés</small>
+          </div>
+          <div className="editorial-overview-card">
+            <span>À gérer</span>
+            <strong>{catalogItems.length}</strong>
+            <small>contenus récents affichés</small>
+          </div>
+        </div>
       </section>
 
       <section
         aria-labelledby="catalog-title"
-        className="editorial-media-section"
+        className="editorial-catalog-section"
       >
-        <h2 id="catalog-title">Contenus récents</h2>
-        {dishPreviews.length || recipePreviews.length ? (
-          <div className="editorial-dish-grid">
-            {dishPreviews.map((dish) => {
-              const image = dish.images[0];
-              const source = dish.sources[0]?.source;
-
-              return (
-                <article className="editorial-dish-card" key={dish.id}>
-                  {image && dish.imageUrl ? (
-                    // Signed Neon URLs are branch-scoped and must load directly in the browser.
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img
-                      alt={image.altText ?? dish.name}
-                      className="editorial-dish-image"
-                      height={420}
-                      src={dish.imageUrl}
-                      width={640}
-                    />
-                  ) : null}
-                  <div className="editorial-dish-copy">
-                    <p className="editorial-dish-status">
-                      {dish.status === "DRAFT" ? "Brouillon" : dish.status}
-                    </p>
-                    <h3>{dish.name}</h3>
-                    {dish.description ? <p>{dish.description}</p> : null}
-                    {image?.attribution && image.provenance ? (
-                      <a
-                        className="editorial-dish-credit"
-                        href={image.provenance}
-                        rel="noopener noreferrer"
-                        target="_blank"
-                      >
-                        {image.attribution} · {image.license}
-                      </a>
-                    ) : null}
-                    {source?.url ? (
-                      <a
-                        href={source.url}
-                        rel="noopener noreferrer"
-                        target="_blank"
-                      >
-                        Source : {source.title}
-                      </a>
-                    ) : null}
-                    {dish.status === "PUBLISHED" ? (
-                      <p className="editorial-published-status">
-                        Plat publié · prêt pour les recettes publiques
-                      </p>
-                    ) : canPublish ? (
-                      <PublishButton contentId={dish.id} contentType="dish" />
-                    ) : (
-                      <p className="editorial-publish-note">
-                        En attente de publication par un administrateur.
-                      </p>
-                    )}
-                  </div>
-                </article>
-              );
-            })}
-            {recipePreviews.map((recipe) => {
-              const image = recipe.images[0];
-              const source = recipe.sources[0]?.source;
-
-              return (
-                <article className="editorial-dish-card" key={recipe.id}>
-                  {image && recipe.imageUrl ? (
-                    // Signed Neon URLs are branch-scoped and must load directly in the browser.
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img
-                      alt={image.altText ?? recipe.title}
-                      className="editorial-dish-image"
-                      height={420}
-                      src={recipe.imageUrl}
-                      width={640}
-                    />
-                  ) : null}
-                  <div className="editorial-dish-copy">
-                    <p className="editorial-dish-status">
-                      {recipe.status === "DRAFT" ? "Brouillon" : recipe.status}
-                    </p>
-                    <h3>{recipe.title}</h3>
-                    <p>Plat : {recipe.dish.name}</p>
-                    {recipe.description ? <p>{recipe.description}</p> : null}
-                    {image?.attribution && image.provenance ? (
-                      <a
-                        className="editorial-dish-credit"
-                        href={image.provenance}
-                        rel="noopener noreferrer"
-                        target="_blank"
-                      >
-                        {image.attribution} · {image.license}
-                      </a>
-                    ) : null}
-                    {source?.url ? (
-                      <a
-                        href={source.url}
-                        rel="noopener noreferrer"
-                        target="_blank"
-                      >
-                        Source : {source.title}
-                      </a>
-                    ) : null}
-                    {recipe.status === "PUBLISHED" ? (
-                      <a href={`/recettes/${recipe.slug}`}>
-                        Voir la recette publiée
-                      </a>
-                    ) : canPublish ? (
-                      <PublishButton contentId={recipe.id} contentType="recipe" />
-                    ) : (
-                      <p className="editorial-publish-note">
-                        En attente de publication par un administrateur.
-                      </p>
-                    )}
-                  </div>
-                </article>
-              );
-            })}
-          </div>
-        ) : (
-          <p className="editorial-empty">
-            Aucun plat enregistré pour le moment.
-          </p>
-        )}
+        <div className="editorial-section-heading">
+          <p className="eyebrow">Catalogue</p>
+          <h2 id="catalog-title">Gérer les contenus</h2>
+          <p>Les actions de publication sont réservées aux administrateurs.</p>
+        </div>
+        <EditorialCatalog canPublish={canPublish} items={catalogItems} />
       </section>
 
       <EditorialContentWorkspace

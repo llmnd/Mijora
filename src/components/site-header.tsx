@@ -1,6 +1,6 @@
 import { headers } from "next/headers";
 import Link from "next/link";
-import { SignOutButton } from "@/components/sign-out-button";
+import { SiteNavigation } from "@/components/site-navigation";
 import { auth } from "@/server/auth";
 import { hasPermission } from "@/server/policies/permissions";
 
@@ -12,24 +12,14 @@ export async function SiteHeader() {
       <Link aria-label="Mijora, accueil" className="brand" href="/">
         mijora<span aria-hidden="true">.</span>
       </Link>
-      <nav aria-label="Navigation principale" className="site-navigation">
-        <Link href="/#approche">Notre approche</Link>
-        <Link href="/#projet">Le projet</Link>
-        {session ? (
-          <>
-            {hasPermission(session.user.role, "editorial:edit") ? (
-              <Link href="/editorial">Espace éditorial</Link>
-            ) : null}
-            <span className="site-user">{session.user.name}</span>
-            <SignOutButton />
-          </>
-        ) : (
-          <>
-            <Link href="/connexion">Connexion</Link>
-            <Link href="/inscription">Créer un compte</Link>
-          </>
-        )}
-      </nav>
+      <SiteNavigation
+        isEditor={
+          session
+            ? hasPermission(session.user.role, "editorial:edit")
+            : false
+        }
+        userName={session?.user.name ?? null}
+      />
     </header>
   );
 }

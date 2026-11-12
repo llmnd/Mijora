@@ -34,9 +34,9 @@ const uploadMetadataSchema = z.object({
   ownerType: z.enum(["dish", "ingredient", "recipe"]),
   ownerId: z.string().trim().min(1).max(128),
   kind: z.enum(["PHOTO", "ILLUSTRATION"]),
-  creator: z.string().trim().min(1).max(200),
-  provenance: z.string().trim().min(1).max(2000),
-  license: z.string().trim().min(1).max(200),
+  creator: optionalText(200),
+  provenance: optionalText(2000),
+  license: optionalText(200),
   attribution: optionalText(1000),
   usageTerms: optionalText(2000),
   altText: optionalText(500),
@@ -113,23 +113,34 @@ async function createImageRecord(
     attribution: metadata.attribution,
     usageTerms: metadata.usageTerms,
     altText: metadata.altText,
-    createdById: userId,
   };
 
   switch (metadata.ownerType) {
     case "dish":
       return prisma.dishImage.create({
-        data: { ...imageData, dishId: metadata.ownerId },
+        data: {
+          ...imageData,
+          dish: { connect: { id: metadata.ownerId } },
+          uploadedBy: { connect: { id: userId } },
+        },
         select: { id: true },
       });
     case "ingredient":
       return prisma.ingredientImage.create({
-        data: { ...imageData, ingredientId: metadata.ownerId },
+        data: {
+          ...imageData,
+          ingredient: { connect: { id: metadata.ownerId } },
+          uploadedBy: { connect: { id: userId } },
+        },
         select: { id: true },
       });
     case "recipe":
       return prisma.recipeImage.create({
-        data: { ...imageData, recipeId: metadata.ownerId },
+        data: {
+          ...imageData,
+          recipe: { connect: { id: metadata.ownerId } },
+          uploadedBy: { connect: { id: userId } },
+        },
         select: { id: true },
       });
   }
@@ -185,7 +196,7 @@ export async function POST(request: Request): Promise<Response> {
     return errorResponse(
       400,
       "INVALID_IMAGE_METADATA",
-      "Provide valid image credits and the target content ID.",
+      "Provide a valid target content ID and optional image credits.",
     );
   }
 

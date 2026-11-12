@@ -49,15 +49,22 @@ vi.mock("@/server/policies/permissions", () => ({
 import { POST } from "@/app/api/v1/media/route";
 
 function createRequest(
-  options: { origin?: string; includeFile?: boolean; fileSize?: number } = {},
+  options: {
+    origin?: string;
+    includeFile?: boolean;
+    includeCredits?: boolean;
+    fileSize?: number;
+  } = {},
 ): Request {
   const formData = new FormData();
   formData.set("ownerType", "dish");
   formData.set("ownerId", "dish-1");
   formData.set("kind", "PHOTO");
-  formData.set("creator", "Awa");
-  formData.set("provenance", "Photo fournie");
-  formData.set("license", "Accord");
+  if (options.includeCredits !== false) {
+    formData.set("creator", "Awa");
+    formData.set("provenance", "Photo fournie");
+    formData.set("license", "Accord");
+  }
   if (options.includeFile !== false) {
     formData.set(
       "file",
@@ -160,8 +167,8 @@ describe("POST /api/v1/media", () => {
     expect(routeMocks.imageCreate).toHaveBeenCalledWith(
       expect.objectContaining({
         data: expect.objectContaining({
-          dishId: "dish-1",
-          createdById: "editor-1",
+          dish: { connect: { id: "dish-1" } },
+          uploadedBy: { connect: { id: "editor-1" } },
         }),
         select: { id: true },
       }),
@@ -173,6 +180,22 @@ describe("POST /api/v1/media", () => {
         url: "https://signed.example/image",
       },
     });
+  });
+
+  it("accepts a personal image without source or licensing metadata", async () => {
+    const response = await POST(createRequest({ includeCredits: false }));
+
+    expect(response.status).toBe(201);
+    expect(routeMocks.imageCreate).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          dish: { connect: { id: "dish-1" } },
+          creator: null,
+          provenance: null,
+          license: null,
+        }),
+      }),
+    );
   });
 
   it("removes the stored object if signing or database persistence fails", async () => {

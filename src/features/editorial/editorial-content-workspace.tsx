@@ -48,36 +48,55 @@ export function EditorialContentWorkspace({
   }
 
   return (
-    <>
-      <section
-        aria-labelledby="create-dish-title"
-        className="editorial-media-section"
-      >
-        <h2 id="create-dish-title">Créer un plat</h2>
-        <DishCreateForm onCreated={addDish} />
-      </section>
+    <section aria-labelledby="editorial-tools-title" className="editorial-tools">
+      <div className="editorial-section-heading">
+        <p className="eyebrow">Actions rapides</p>
+        <h2 id="editorial-tools-title">Faire évoluer le catalogue</h2>
+        <p>Ouvrez uniquement l’action dont vous avez besoin.</p>
+      </div>
+      <div className="editorial-tool-grid">
+        <details className="editorial-tool-panel">
+          <summary>
+            <span className="editorial-tool-title">Créer un plat</span>
+            <span className="editorial-tool-description">
+              Ajouter un nouveau plat au catalogue
+            </span>
+          </summary>
+          <div className="editorial-tool-content">
+            <DishCreateForm onCreated={addDish} />
+          </div>
+        </details>
 
-      <section
-        aria-labelledby="create-recipe-title"
-        className="editorial-media-section"
-      >
-        <h2 id="create-recipe-title">Créer une recette</h2>
-        {dishes.length === 0 ? (
-          <p className="editorial-empty">
-            Créez d’abord un plat pour pouvoir lui associer une recette.
-          </p>
-        ) : (
-          <RecipeCreateForm dishes={dishes} onCreated={addRecipe} />
-        )}
-      </section>
+        <details className="editorial-tool-panel">
+          <summary>
+            <span className="editorial-tool-title">Créer une recette</span>
+            <span className="editorial-tool-description">
+              Associer une recette à un plat existant
+            </span>
+          </summary>
+          <div className="editorial-tool-content">
+            {dishes.length === 0 ? (
+              <p className="editorial-empty">
+                Créez d’abord un plat pour pouvoir lui associer une recette.
+              </p>
+            ) : (
+              <RecipeCreateForm dishes={dishes} onCreated={addRecipe} />
+            )}
+          </div>
+        </details>
 
-      <section
-        aria-labelledby="media-title"
-        className="editorial-media-section"
-      >
-        <h2 id="media-title">Ajouter une image</h2>
-        <EditorialMediaWorkspace targets={targets} />
-      </section>
-    </>
+        <details className="editorial-tool-panel">
+          <summary>
+            <span className="editorial-tool-title">Ajouter une image</span>
+            <span className="editorial-tool-description">
+              Choisir un contenu et téléverser son visuel
+            </span>
+          </summary>
+          <div className="editorial-tool-content">
+            <EditorialMediaWorkspace targets={targets} />
+          </div>
+        </details>
+      </div>
+    </section>
   );
 }

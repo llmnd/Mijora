@@ -30,9 +30,15 @@ describe("image upload form", () => {
       screen.getByLabelText(/Image/),
       new File(["image bytes"], "dish.webp", { type: "image/webp" }),
     );
-    await user.type(screen.getByLabelText("Créateur ou photographe"), "Awa");
-    await user.type(screen.getByLabelText("Provenance"), "Photo fournie");
-    await user.type(screen.getByLabelText("Licence ou autorisation"), "Accord");
+    await user.type(
+      screen.getByLabelText(/Créateur ou photographe/),
+      "Awa",
+    );
+    await user.type(screen.getByLabelText(/Provenance/), "Photo fournie");
+    await user.type(
+      screen.getByLabelText(/Licence ou autorisation/),
+      "Accord",
+    );
     await user.click(screen.getByRole("button", { name: "Téléverser l’image" }));
 
     await screen.findByRole("link", { name: "Ouvrir l’aperçu temporaire" });
@@ -46,5 +52,45 @@ describe("image upload form", () => {
     expect((body as FormData).get("ownerId")).toBe("dish-1");
     expect((body as FormData).get("creator")).toBe("Awa");
     await waitFor(() => expect(onUploaded).toHaveBeenCalledWith(image));
+  });
+
+  it("allows uploading a personal image without source or license fields", async () => {
+    const user = userEvent.setup();
+    vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      Response.json(
+        {
+          data: {
+            id: "image-2",
+            key: "dishes/image-2.webp",
+            url: "https://signed.example/image-2",
+          },
+        },
+        { status: 201 },
+      ),
+    );
+
+    render(
+      <ImageUploadForm ownerId="dish-1" ownerType="dish" />,
+    );
+
+    expect(
+      screen.getByLabelText(/Créateur ou photographe/),
+    ).not.toBeRequired();
+    expect(screen.getByLabelText(/Provenance ou source/)).not.toBeRequired();
+    expect(
+      screen.getByLabelText(/Licence ou autorisation/),
+    ).not.toBeRequired();
+
+    await user.upload(
+      screen.getByLabelText(/Image/),
+      new File(["image bytes"], "personal.webp", { type: "image/webp" }),
+    );
+    await user.click(screen.getByRole("button", { name: "Téléverser l’image" }));
+
+    await screen.findByRole("link", { name: "Ouvrir l’aperçu temporaire" });
+    const formData = vi.mocked(globalThis.fetch).mock.calls[0]?.[1]?.body;
+    expect(formData).toBeInstanceOf(FormData);
+    expect((formData as FormData).get("provenance")).toBe("");
+    expect((formData as FormData).get("license")).toBe("");
   });
 });
