@@ -1,0 +1,580 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum ContentStatus {
+  DRAFT
+  PENDING_REVIEW
+  APPROVED
+  PUBLISHED
+  ARCHIVED
+}
+
+enum CategoryType {
+  DISH
+  INGREDIENT
+}
+
+enum MediaKind {
+  PHOTO
+  ILLUSTRATION
+  AI_GENERATED
+}
+
+model User {
+  id            String    @id
+  name          String
+  email         String    @unique
+  emailVerified Boolean   @default(false)
+  image         String?
+  role          String    @default("user")
+  banned        Boolean   @default(false)
+  banReason     String?
+  banExpires    DateTime?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  sessions              Session[]
+  accounts              Account[]
+  preference            UserPreference?
+  dietaryPreferences    UserDietaryPreference[]
+  dishFavorites         DishFavorite[]
+  recipeFavorites       RecipeFavorite[]
+  ingredientFavorites   IngredientFavorite[]
+  collections           Collection[]
+  authoredDishes        Dish[]                 @relation("DishAuthor")
+  reviewedDishes        Dish[]                 @relation("DishReviewer")
+  authoredRecipes       Recipe[]               @relation("RecipeAuthor")
+  reviewedRecipes       Recipe[]               @relation("RecipeReviewer")
+  authoredIngredients   Ingredient[]           @relation("IngredientAuthor")
+  reviewedIngredients  Ingredient[]           @relation("IngredientReviewer")
+  uploadedDishImages    DishImage[]            @relation("DishImageCreator")
+  reviewedDishImages    DishImage[]            @relation("DishImageReviewer")
+  uploadedRecipeImages  RecipeImage[]          @relation("RecipeImageCreator")
+  reviewedRecipeImages  RecipeImage[]          @relation("RecipeImageReviewer")
+  uploadedIngredientImages IngredientImage[]    @relation("IngredientImageCreator")
+  reviewedIngredientImages IngredientImage[]    @relation("IngredientImageReviewer")
+
+  @@index([role])
+}
+
+model Session {
+  id        String   @id
+  expiresAt DateTime
+  token     String   @unique
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  ipAddress String?
+  userAgent String?
+  impersonatedBy String?
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+model Account {
+  id                    String    @id
+  accountId             String
+  providerId            String
+  userId                String
+  accessToken           String?
+  refreshToken          String?
+  idToken               String?
+  accessTokenExpiresAt  DateTime?
+  refreshTokenExpiresAt DateTime?
+  scope                 String?
+  password              String?
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
+  user                  User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@unique([providerId, accountId])
+}
+
+model Verification {
+  id         String   @id
+  identifier String
+  value      String
+  expiresAt  DateTime
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@index([identifier])
+}
+
+model UserPreference {
+  userId          String   @id
+  locale          String?
+  countryCode     String?  @db.Char(2)
+  regionId        String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  country         Country? @relation(fields: [countryCode], references: [code], onDelete: SetNull)
+  region          Region?  @relation(fields: [regionId, countryCode], references: [id, countryCode], onDelete: SetNull)
+
+  @@index([countryCode])
+  @@index([regionId])
+}
+
+model DietaryPreference {
+  id          String                    @id @default(cuid())
+  slug        String                    @unique
+  name        String
+  description String?
+  users       UserDietaryPreference[]
+}
+
+model UserDietaryPreference {
+  userId               String
+  dietaryPreferenceId  String
+  createdAt            DateTime           @default(now())
+  user                 User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+  dietaryPreference    DietaryPreference  @relation(fields: [dietaryPreferenceId], references: [id], onDelete: Cascade)
+
+  @@id([userId, dietaryPreferenceId])
+  @@index([dietaryPreferenceId])
+}
+
+model Country {
+  code         String           @id @db.Char(2)
+  name         String
+  defaultLocale String?
+  regions      Region[]
+  preferences UserPreference[]
+
+  @@index([name])
+}
+
+model Region {
+  id          String           @id @default(cuid())
+  countryCode String           @db.Char(2)
+  name        String
+  slug        String
+  country     Country          @relation(fields: [countryCode], references: [code], onDelete: Restrict)
+  localities  Locality[]
+  dishes      DishRegion[]
+  preferences UserPreference[]
+
+  @@unique([countryCode, slug])
+  @@unique([id, countryCode])
+  @@index([countryCode, name])
+}
+
+model Locality {
+  id       String   @id @default(cuid())
+  regionId String
+  name     String
+  slug     String
+  region   Region   @relation(fields: [regionId], references: [id], onDelete: Restrict)
+
+  @@unique([regionId, slug])
+  @@index([regionId, name])
+}
+
+model Dish {
+  id           String        @id @default(cuid())
+  name         String
+  slug         String        @unique
+  description  String?       @db.Text
+  languageCode String?
+  status       ContentStatus @default(DRAFT)
+  createdById  String?
+  reviewedById String?
+  reviewedAt   DateTime?
+  publishedAt  DateTime?
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+
+  author       User?         @relation("DishAuthor", fields: [createdById], references: [id], onDelete: SetNull)
+  reviewer     User?         @relation("DishReviewer", fields: [reviewedById], references: [id], onDelete: SetNull)
+  recipes      Recipe[]
+  regions      DishRegion[]
+  categories   DishCategory[]
+  sources      DishSource[]
+  images       DishImage[]
+  favorites    DishFavorite[]
+  collectionItems CollectionDishItem[]
+
+  @@index([status, publishedAt])
+  @@index([name])
+}
+
+model DishRegion {
+  dishId      String
+  regionId    String
+  countryCode String   @db.Char(2)
+  dish        Dish     @relation(fields: [dishId], references: [id], onDelete: Cascade)
+  region      Region   @relation(fields: [regionId, countryCode], references: [id, countryCode], onDelete: Cascade)
+
+  @@id([dishId, regionId])
+  @@index([regionId, dishId])
+  @@index([countryCode, dishId])
+}
+
+model Category {
+  id          String       @id @default(cuid())
+  type        CategoryType
+  name        String
+  slug        String
+  description String?
+  dishes      DishCategory[]
+  ingredients IngredientCategory[]
+
+  @@unique([type, slug])
+  @@index([type, name])
+}
+
+model DishCategory {
+  dishId     String
+  categoryId String
+  dish       Dish     @relation(fields: [dishId], references: [id], onDelete: Cascade)
+  category   Category @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+
+  @@id([dishId, categoryId])
+  @@index([categoryId, dishId])
+}
+
+model Recipe {
+  id                       String        @id @default(cuid())
+  dishId                   String
+  title                    String
+  slug                     String        @unique
+  description              String?       @db.Text
+  servings                 Int?
+  preparationTimeMinutes   Int?
+  cookingTimeMinutes       Int?
+  status                   ContentStatus @default(DRAFT)
+  createdById              String?
+  reviewedById             String?
+  reviewedAt               DateTime?
+  publishedAt              DateTime?
+  createdAt                DateTime      @default(now())
+  updatedAt                DateTime      @updatedAt
+
+  dish             Dish                    @relation(fields: [dishId], references: [id], onDelete: Restrict)
+  author           User?                   @relation("RecipeAuthor", fields: [createdById], references: [id], onDelete: SetNull)
+  reviewer         User?                   @relation("RecipeReviewer", fields: [reviewedById], references: [id], onDelete: SetNull)
+  ingredients      RecipeIngredient[]
+  steps            RecipeStep[]
+  sources          RecipeSource[]
+  images           RecipeImage[]
+  favorites        RecipeFavorite[]
+  collectionItems  CollectionRecipeItem[]
+
+  @@index([dishId, status])
+  @@index([status, publishedAt])
+  @@index([title])
+}
+
+model Ingredient {
+  id           String        @id @default(cuid())
+  name         String
+  slug         String        @unique
+  description  String?       @db.Text
+  mergedIntoId String?
+  mergedAt     DateTime?
+  status       ContentStatus @default(DRAFT)
+  createdById  String?
+  reviewedById String?
+  reviewedAt   DateTime?
+  publishedAt  DateTime?
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+
+  author       User?                 @relation("IngredientAuthor", fields: [createdById], references: [id], onDelete: SetNull)
+  reviewer     User?                 @relation("IngredientReviewer", fields: [reviewedById], references: [id], onDelete: SetNull)
+  mergedInto   Ingredient?           @relation("IngredientMerge", fields: [mergedIntoId], references: [id], onDelete: Restrict)
+  mergedFrom   Ingredient[]          @relation("IngredientMerge")
+  aliases      IngredientAlias[]
+  categories   IngredientCategory[]
+  recipes      RecipeIngredient[]
+  sources      IngredientSource[]
+  images       IngredientImage[]
+  favorites    IngredientFavorite[]
+  collectionItems CollectionIngredientItem[]
+
+  @@index([status, publishedAt])
+  @@index([name])
+}
+
+model IngredientAlias {
+  id             String     @id @default(cuid())
+  ingredientId   String
+  locale         String
+  label          String
+  normalizedName String
+  ingredient     Ingredient @relation(fields: [ingredientId], references: [id], onDelete: Cascade)
+
+  @@unique([ingredientId, locale, normalizedName])
+  @@index([locale, normalizedName])
+}
+
+model IngredientCategory {
+  ingredientId String
+  categoryId   String
+  ingredient   Ingredient @relation(fields: [ingredientId], references: [id], onDelete: Cascade)
+  category     Category   @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+
+  @@id([ingredientId, categoryId])
+  @@index([categoryId, ingredientId])
+}
+
+model MeasurementUnit {
+  code        String              @id
+  name        String
+  symbol      String?
+  dimension   String?
+  ingredients RecipeIngredient[]
+}
+
+model RecipeIngredient {
+  recipeId     String
+  ingredientId String
+  unitCode     String?
+  quantity     Decimal?         @db.Decimal(12, 4)
+  notes        String?
+  isOptional   Boolean          @default(false)
+  position     Int
+  recipe       Recipe           @relation(fields: [recipeId], references: [id], onDelete: Cascade)
+  ingredient   Ingredient       @relation(fields: [ingredientId], references: [id], onDelete: Restrict)
+  unit         MeasurementUnit? @relation(fields: [unitCode], references: [code], onDelete: Restrict)
+
+  @@id([recipeId, ingredientId])
+  @@unique([recipeId, position])
+  @@index([ingredientId, recipeId])
+}
+
+model RecipeStep {
+  id          String   @id @default(cuid())
+  recipeId    String
+  position    Int
+  instruction String   @db.Text
+  recipe      Recipe   @relation(fields: [recipeId], references: [id], onDelete: Cascade)
+
+  @@unique([recipeId, position])
+  @@index([recipeId])
+}
+
+model ContentSource {
+  id                   String          @id @default(cuid())
+  title                String
+  authorOrOrganization String?
+  url                  String?
+  reference            String?
+  consultedAt          DateTime?
+  notes                String?         @db.Text
+  createdAt            DateTime        @default(now())
+  dishes               DishSource[]
+  recipes              RecipeSource[]
+  ingredients          IngredientSource[]
+
+  @@index([title])
+}
+
+model DishSource {
+  dishId   String
+  sourceId String
+  fact     String?
+  dish     Dish          @relation(fields: [dishId], references: [id], onDelete: Cascade)
+  source   ContentSource @relation(fields: [sourceId], references: [id], onDelete: Restrict)
+
+  @@id([dishId, sourceId])
+  @@index([sourceId])
+}
+
+model RecipeSource {
+  recipeId String
+  sourceId String
+  fact     String?
+  recipe   Recipe        @relation(fields: [recipeId], references: [id], onDelete: Cascade)
+  source   ContentSource @relation(fields: [sourceId], references: [id], onDelete: Restrict)
+
+  @@id([recipeId, sourceId])
+  @@index([sourceId])
+}
+
+model IngredientSource {
+  ingredientId String
+  sourceId     String
+  fact         String?
+  ingredient   Ingredient    @relation(fields: [ingredientId], references: [id], onDelete: Cascade)
+  source       ContentSource @relation(fields: [sourceId], references: [id], onDelete: Restrict)
+
+  @@id([ingredientId, sourceId])
+  @@index([sourceId])
+}
+
+model DishImage {
+  id               String     @id @default(cuid())
+  dishId           String
+  storageKey       String
+  kind             MediaKind
+  creator          String
+  provenance       String
+  license          String
+  attribution      String?
+  usageTerms       String?
+  altText          String?
+  position         Int        @default(0)
+  status           ContentStatus @default(DRAFT)
+  createdById      String?
+  reviewedById     String?
+  reviewedAt       DateTime?
+  createdAt        DateTime   @default(now())
+  dish             Dish       @relation(fields: [dishId], references: [id], onDelete: Cascade)
+  uploadedBy       User?      @relation("DishImageCreator", fields: [createdById], references: [id], onDelete: SetNull)
+  reviewedBy      User?      @relation("DishImageReviewer", fields: [reviewedById], references: [id], onDelete: SetNull)
+
+  @@index([dishId, status, position])
+}
+
+model RecipeImage {
+  id               String     @id @default(cuid())
+  recipeId         String
+  storageKey       String
+  kind             MediaKind
+  creator          String
+  provenance       String
+  license          String
+  attribution      String?
+  usageTerms       String?
+  altText          String?
+  position         Int        @default(0)
+  status           ContentStatus @default(DRAFT)
+  createdById      String?
+  reviewedById     String?
+  reviewedAt       DateTime?
+  createdAt        DateTime   @default(now())
+  recipe           Recipe     @relation(fields: [recipeId], references: [id], onDelete: Cascade)
+  uploadedBy       User?      @relation("RecipeImageCreator", fields: [createdById], references: [id], onDelete: SetNull)
+  reviewedBy      User?      @relation("RecipeImageReviewer", fields: [reviewedById], references: [id], onDelete: SetNull)
+
+  @@index([recipeId, status, position])
+}
+
+model IngredientImage {
+  id               String     @id @default(cuid())
+  ingredientId     String
+  storageKey       String
+  kind             MediaKind
+  creator          String
+  provenance       String
+  license          String
+  attribution      String?
+  usageTerms       String?
+  altText          String?
+  position         Int        @default(0)
+  status           ContentStatus @default(DRAFT)
+  createdById      String?
+  reviewedById     String?
+  reviewedAt       DateTime?
+  createdAt        DateTime   @default(now())
+  ingredient       Ingredient @relation(fields: [ingredientId], references: [id], onDelete: Cascade)
+  uploadedBy       User?      @relation("IngredientImageCreator", fields: [createdById], references: [id], onDelete: SetNull)
+  reviewedBy      User?      @relation("IngredientImageReviewer", fields: [reviewedById], references: [id], onDelete: SetNull)
+
+  @@index([ingredientId, status, position])
+}
+
+model DishFavorite {
+  userId    String
+  dishId    String
+  createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  dish      Dish     @relation(fields: [dishId], references: [id], onDelete: Cascade)
+
+  @@id([userId, dishId])
+  @@index([dishId, createdAt])
+}
+
+model RecipeFavorite {
+  userId    String
+  recipeId  String
+  createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  recipe    Recipe   @relation(fields: [recipeId], references: [id], onDelete: Cascade)
+
+  @@id([userId, recipeId])
+  @@index([recipeId, createdAt])
+}
+
+model IngredientFavorite {
+  userId       String
+  ingredientId String
+  createdAt    DateTime   @default(now())
+  user         User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  ingredient   Ingredient @relation(fields: [ingredientId], references: [id], onDelete: Cascade)
+
+  @@id([userId, ingredientId])
+  @@index([ingredientId, createdAt])
+}
+
+model Collection {
+  id          String                  @id @default(cuid())
+  userId      String
+  name        String
+  description String?
+  createdAt   DateTime                @default(now())
+  updatedAt   DateTime                @updatedAt
+  user        User                    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  dishes      CollectionDishItem[]
+  recipes     CollectionRecipeItem[]
+  ingredients CollectionIngredientItem[]
+
+  @@unique([userId, name])
+  @@index([userId, updatedAt])
+}
+
+model CollectionDishItem {
+  collectionId String
+  dishId       String
+  addedAt      DateTime   @default(now())
+  collection   Collection @relation(fields: [collectionId], references: [id], onDelete: Cascade)
+  dish         Dish       @relation(fields: [dishId], references: [id], onDelete: Cascade)
+
+  @@id([collectionId, dishId])
+  @@index([dishId])
+}
+
+model CollectionRecipeItem {
+  collectionId String
+  recipeId     String
+  addedAt      DateTime   @default(now())
+  collection   Collection @relation(fields: [collectionId], references: [id], onDelete: Cascade)
+  recipe       Recipe     @relation(fields: [recipeId], references: [id], onDelete: Cascade)
+
+  @@id([collectionId, recipeId])
+  @@index([recipeId])
+}
+
+model CollectionIngredientItem {
+  collectionId String
+  ingredientId String
+  addedAt      DateTime   @default(now())
+  collection   Collection @relation(fields: [collectionId], references: [id], onDelete: Cascade)
+  ingredient   Ingredient @relation(fields: [ingredientId], references: [id], onDelete: Cascade)
+
+  @@id([collectionId, ingredientId])
+  @@index([ingredientId])
+}
+
+model AdminAuditLog {
+  id         String   @id @default(cuid())
+  actorId    String
+  action     String
+  targetType String
+  targetId   String
+  metadata   Json?
+  createdAt  DateTime @default(now())
+
+  @@index([actorId, createdAt])
+  @@index([targetType, targetId, createdAt])
+}

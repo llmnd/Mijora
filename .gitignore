@@ -1,0 +1,29 @@
+# Dependencies
+/node_modules
+/.pnp
+.pnp.*
+
+# Next.js
+/.next/
+/out/
+
+# Production build
+/build/
+
+# Local environment files; keep the template tracked.
+.env*
+!.env.example
+
+# Local services and tooling
+/.vercel/
+/.concord/
+/coverage/
+/playwright-report/
+/test-results/
+/src/generated/prisma/
+*.tsbuildinfo
+
+# Operating system and editor files
+.DS_Store
+Thumbs.db
+.neon

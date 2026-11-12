@@ -1,0 +1,15 @@
+
+{
+  "servers": {
+    "concord": {
+      "type": "stdio",
+      "command": "cmd.exe",
+      "args": [
+        "/c",
+        "npx",
+        "-y",
+        "@concord-ai/concord-mcp"
+      ]
+    }
+  }
+}
