@@ -1,6 +1,7 @@
 import { connection } from "next/server";
 import { ActionLink } from "@/components/ui/action-link";
 import { SiteHeader } from "@/components/site-header";
+import { PublicSearch } from "@/features/search/public-search";
 import { createSignedImageUrl } from "@/lib/neon-object-storage";
 import { prisma } from "@/server/db/client";
 
@@ -107,6 +108,8 @@ export default async function HomePage() {
           {discoveryLink.label} <span aria-hidden="true">↘</span>
         </ActionLink>
       </section>
+
+      <PublicSearch />
 
       {dishCards.length ? (
         <section

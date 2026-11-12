@@ -40,10 +40,16 @@ Neon Object Storage héberge les médias dans le bucket privé `assets`, déclar
 
 L'authentification du code applicatif est basée sur Better Auth. Neon Managed Auth est activé sur la branche `production`, mais n'est pas branché à l'application; ne pas confondre ces deux intégrations ni migrer l'identité implicitement. Les permissions sont appliquées côté serveur, au niveau des actions et données, et non uniquement en masquant des boutons. Les fonctionnalités de Google OAuth seront ajoutées après configuration séparée.
 
+## Hébergement
+
+L'application est destinée à être déployée sur Vercel comme un seul projet Next.js : pages, composants serveur et Route Handlers `/api/v1` partagent le même déploiement. Aucun serveur Node séparé ni microservice n'est nécessaire pour la V1. Vercel héberge l'application; Neon continue d'héberger PostgreSQL et les médias.
+
+Les connexions à PostgreSQL et Object Storage, la clé Better Auth et les autres secrets sont configurés côté serveur dans les variables d'environnement Vercel et ne sont jamais préfixés `NEXT_PUBLIC_`. La production utilise les ressources Neon de production. Les déploiements Preview ne doivent pas être reliés à ces ressources de production par défaut; une configuration de données non-production doit être décidée avant de leur ouvrir l'accès.
+
 ## Validation et erreurs
 
 Les données HTTP externes sont validées avec Zod à la frontière. Les services retournent des résultats métier typés; les Route Handlers convertissent les erreurs en réponses HTTP cohérentes. Les erreurs ne doivent pas divulguer secrets, tokens, données personnelles ou détails internes. Les logs sont structurés et minimisés.
 
 ## Exécution et qualité
 
-Le projet cible Node.js et une CI GitHub Actions. Le build, le lint, le contrôle TypeScript et les tests constituent la vérification minimale d'une modification. Le fournisseur d'hébergement et le fournisseur d'e-mails restent à confirmer; l'intégration de stockage utilise Neon Object Storage.
+Le projet cible Node.js, Vercel pour l'hébergement applicatif et GitHub Actions pour la CI. Le build, le lint, le contrôle TypeScript et les tests constituent la vérification minimale d'une modification. Le fournisseur d'e-mails reste à confirmer; l'intégration de stockage utilise Neon Object Storage.

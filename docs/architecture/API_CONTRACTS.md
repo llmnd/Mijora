@@ -31,6 +31,7 @@ Les formes exactes de chaque schéma seront dérivées des types métier validé
 | Recettes éditoriales | `POST /api/v1/editorial/recipes` | Session `editor` ou `admin`; recette, ingrédients, étapes et source créés en brouillon dans une transaction. |
 | Publication éditoriale | `POST /api/v1/editorial/publish` | Session `admin`; publie un plat ou une recette prête, publie ses images non archivées et écrit un audit. |
 | Médias éditoriaux | `POST /api/v1/media` | Session `editor` ou `admin`; image liée à un plat, une recette ou un ingrédient existant. |
+| Recherche publique | `GET /api/v1/search?q=...` | Public; recherche bornée sur les plats et recettes publiés uniquement. |
 
 Les routes de création, modification, validation, publication, fusion et archivage sont privées. L'édition de contenu relève de `editor`; la gestion des comptes, rôles et paramètres est réservée à `admin`.
 
@@ -39,6 +40,10 @@ Les routes de création, modification, validation, publication, fusion et archiv
 `POST /api/v1/editorial/recipes` reçoit un JSON avec le plat associé, le titre, la description originale, les portions, les durées optionnelles, les ingrédients et quantités en texte, les étapes, ainsi que le titre, l'URL HTTPS et le fait vérifié de la source. Une session disposant de `editorial:create` est requise. La recette, les références aux ingrédients, les étapes et la source sont créées dans une transaction au statut `DRAFT`.
 
 `POST /api/v1/editorial/publish` reçoit `{ "contentType": "dish" | "recipe", "contentId": "..." }`. La route exige `editorial:publish`, valide que le contenu est prêt, met à jour son statut et `publishedAt`, publie ses images non archivées et ajoute une entrée d'audit dans la même transaction. Une recette ne peut pas être publiée tant que son plat n'est pas publié, ou si elle ne possède pas de source, d'ingrédient et d'étape. Les recettes publiées et leur détail sont accessibles publiquement sur l'accueil et `/recettes/:slug`; les brouillons restent privés.
+
+### Recherche publique du catalogue
+
+`GET /api/v1/search?q=...` accepte une requête textuelle de 2 à 80 caractères après suppression des espaces de bord. La recherche insensible à la casse porte sur les noms/titres et descriptions des plats et recettes publiés. Les recettes associées à un plat non publié ne sont jamais renvoyées. La réponse contient jusqu'à six résultats par type; les images publiées sont servies par URL signée temporaire. Une requête absente ou invalide retourne `400` avec `{ "error": { "code": "...", "message": "..." } }`.
 
 ### Téléversement média
 

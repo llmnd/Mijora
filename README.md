@@ -28,7 +28,7 @@ Le périmètre détaillé et les exclusions du MVP sont décrits dans [docs/prod
 - Zod, Vitest, Testing Library et Playwright.
 - GitHub Actions pour les vérifications continues.
 
-Le fournisseur d'hébergement de l'application et le fournisseur d'e-mails restent à confirmer. Le stockage des médias utilise le bucket privé Neon `assets`; Cloudinary n'est pas utilisé. Voir [docs/architecture/ARCHITECTURE_DECISIONS.md](docs/architecture/ARCHITECTURE_DECISIONS.md).
+Le frontend et le backend intégré seront hébergés ensemble sur Vercel dans un seul projet Next.js. PostgreSQL et les médias restent sur Neon; les e-mails transactionnels restent à choisir. Le stockage des médias utilise le bucket privé Neon `assets`; Cloudinary n'est pas utilisé. Voir [docs/architecture/ARCHITECTURE_DECISIONS.md](docs/architecture/ARCHITECTURE_DECISIONS.md).
 
 ## Démarrage local
 
@@ -50,6 +50,8 @@ npm run dev
 Les écrans de compte sont disponibles sur `/inscription`, `/connexion` et `/mot-de-passe-oublie`; le lien de réinitialisation ouvre `/reinitialiser-mot-de-passe`. La vérification e-mail est requise; en développement, les liens apparaissent dans le terminal Next.js. Les nouveaux comptes ont le rôle `user`; un administrateur doit attribuer `editor` ou `admin` séparément pour autoriser l'édition et l'upload média.
 
 Le frontend et les Route Handlers backend s'exécutent dans le même serveur Next.js, par défaut sur `http://localhost:3000`; un seul port suffit et aucun script `dev:all` n'est nécessaire. Pour changer le port, utilisez `npm run dev -- -p 3001`.
+
+En production, Vercel hébergera ce même projet Next.js : pages et Route Handlers `/api/v1` seront déployés ensemble. Le déploiement Vercel et ses variables d'environnement restent à configurer; ne connectez pas les déploiements Preview à la base de production.
 
 `DATABASE_URL` sert aux connexions applicatives. Prisma privilégie `DIRECT_URL`, puis `DATABASE_URL_UNPOOLED` pour les migrations. Les variables `AWS_*` du stockage sont fournies par Neon; ne les copiez jamais dans Git. Ne lancez pas de migration locale contre la branche de production.
 

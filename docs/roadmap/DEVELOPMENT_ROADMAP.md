@@ -38,7 +38,8 @@ La séquence ci-dessous s'appuie sur le plan MIJORA-PLAN et les décisions confi
 
 ## Phase 6 — Préparation de production
 
-- Choix et approbation du fournisseur d'hébergement et du fournisseur d'e-mails; Neon Object Storage est retenu pour les images.
+- Déploiement de l'application Next.js sur Vercel; connecter le dépôt, configurer les environnements, les secrets et le domaine de production.
+- Choix et configuration du fournisseur d'e-mails; Neon Object Storage est retenu pour les images.
 - Sécurité, accessibilité, performance mobile, sauvegarde/restauration et observabilité.
 - Déploiement progressif, vérifications CI et procédures d'exploitation documentées.
 
@@ -46,4 +47,4 @@ La séquence ci-dessous s'appuie sur le plan MIJORA-PLAN et les décisions confi
 
 La fondation précède les modules métier. Le schéma relationnel validé précède les API de données; les contrats API et les permissions doivent être stabilisés avant tout travail parallèle d'interface et de services. L'authentification précède les favoris et les opérations admin. Le catalogue d'ingrédients est préalable aux parcours de recherche par ingrédients.
 
-Les décisions de fournisseur, la politique exacte de rétention, les contenus du catalogue et leur localisation doivent être validés avant leur activation en production.
+La décision d'hébergement Vercel est approuvée. La configuration des comptes et des déploiements, le fournisseur d'e-mail, la politique exacte de rétention, les contenus du catalogue et leur localisation restent à valider avant activation en production.

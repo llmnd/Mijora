@@ -431,6 +431,188 @@ a:focus-visible {
   font-weight: 600;
 }
 
+.public-search-section {
+  border-top: 1px solid var(--color-line);
+  padding-block: 3.5rem;
+}
+
+.public-search-heading {
+  display: grid;
+  gap: 1rem;
+  margin-bottom: 1.5rem;
+}
+
+.public-search-heading .eyebrow {
+  margin-bottom: 0.75rem;
+}
+
+.public-search-heading h2 {
+  margin: 0;
+  font-family: var(--font-editorial);
+  font-size: clamp(2.1rem, 7vw, 3.75rem);
+  font-weight: 400;
+  letter-spacing: -0.05em;
+}
+
+.public-search-heading > p {
+  max-width: 32rem;
+  align-self: end;
+  margin: 0;
+  color: var(--color-ink-soft);
+  line-height: 1.7;
+}
+
+.public-search-form {
+  display: grid;
+  max-width: 44rem;
+  gap: 0.6rem;
+  margin-bottom: 1.5rem;
+}
+
+.public-search-field {
+  color: var(--color-ink);
+  font-size: 0.86rem;
+  font-weight: 600;
+}
+
+.public-search-controls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.65rem;
+}
+
+.public-search-controls input {
+  min-width: min(100%, 16rem);
+  min-height: 3rem;
+  flex: 1;
+  border: 1px solid var(--color-line);
+  border-radius: 0.45rem;
+  background: var(--color-ivory);
+  padding: 0.7rem 0.8rem;
+  color: var(--color-ink);
+  font: inherit;
+}
+
+.public-search-controls input:focus-visible,
+.public-search-submit:focus-visible {
+  outline: 3px solid var(--color-natural);
+  outline-offset: 3px;
+}
+
+.public-search-submit {
+  min-height: 3rem;
+  border: 0;
+  border-radius: 999px;
+  background: var(--color-ink);
+  padding: 0.75rem 1.25rem;
+  color: var(--color-ivory);
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.public-search-submit:hover:not(:disabled) {
+  background: var(--color-natural);
+}
+
+.public-search-submit:disabled {
+  cursor: wait;
+  opacity: 0.7;
+}
+
+.public-search-message {
+  margin: 1rem 0;
+  color: var(--color-ink-soft);
+  font-size: 0.88rem;
+  line-height: 1.6;
+}
+
+.public-search-message.search-error {
+  color: #9a302a;
+}
+
+.public-search-results {
+  display: grid;
+  gap: 1.5rem;
+}
+
+.public-search-results > h3,
+.public-search-results h4 {
+  margin: 0;
+  font-family: var(--font-editorial);
+  font-weight: 400;
+}
+
+.public-search-results > h3 {
+  font-size: 1.75rem;
+}
+
+.public-search-results h4 {
+  margin-bottom: 0.75rem;
+  font-size: 1.35rem;
+}
+
+.public-search-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 17rem), 1fr));
+  gap: 1rem;
+}
+
+.public-search-card {
+  overflow: hidden;
+  border: 1px solid var(--color-line);
+  border-radius: 0.9rem;
+  background: var(--color-cream);
+}
+
+.public-search-card > img {
+  display: block;
+  width: 100%;
+  aspect-ratio: 3 / 2;
+  object-fit: cover;
+}
+
+.public-search-card-copy {
+  display: grid;
+  gap: 0.6rem;
+  padding: 1rem;
+}
+
+.public-search-card-copy h5,
+.public-search-card-copy p {
+  margin: 0;
+}
+
+.public-search-card-copy h5 {
+  font-family: var(--font-editorial);
+  font-size: 1.4rem;
+  font-weight: 400;
+  line-height: 1.2;
+}
+
+.public-search-card-copy h5 a {
+  text-decoration: none;
+}
+
+.public-search-card-copy h5 a:hover {
+  text-decoration: underline;
+  text-underline-offset: 0.2em;
+}
+
+.public-search-card-copy > p {
+  color: var(--color-ink-soft);
+  font-size: 0.86rem;
+  line-height: 1.6;
+}
+
+.public-search-card-copy .public-search-dish {
+  color: var(--color-natural);
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
 .recipe-page {
   padding-bottom: 5rem;
 }
@@ -577,6 +759,12 @@ a:focus-visible {
 }
 
 .public-recipes-heading {
+  grid-template-columns: 1fr 1fr;
+  gap: 3rem;
+  align-items: end;
+}
+
+.public-search-heading {
   grid-template-columns: 1fr 1fr;
   gap: 3rem;
   align-items: end;
