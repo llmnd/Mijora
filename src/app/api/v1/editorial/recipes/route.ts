@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { revalidatePath } from "next/cache";
 import { slugify } from "@/lib/slug";
 import { auth } from "@/server/auth";
 import { prisma } from "@/server/db/client";
@@ -36,6 +37,12 @@ const createRecipeSchema = z.object({
     }
     ingredientSlugs.add(slug);
   }
+});
+
+const updateRecipeSchema = z.object({
+  id: z.string().trim().min(1).max(128),
+  title: z.string().trim().min(2).max(160),
+  description: z.string().trim().min(20).max(2000),
 });
 
 function errorResponse(
@@ -176,4 +183,55 @@ export async function POST(request: Request): Promise<Response> {
   });
 
   return Response.json({ data: recipe }, { status: 201 });
+}
+
+export async function PATCH(request: Request): Promise<Response> {
+  if (!isAllowedOrigin(request.headers.get("origin"))) {
+    return errorResponse(403, "ORIGIN_NOT_ALLOWED", "Request origin is not allowed.");
+  }
+
+  const session = await auth.api.getSession({ headers: request.headers });
+  if (!session) {
+    return errorResponse(401, "UNAUTHENTICATED", "Connectez-vous pour modifier le contenu.");
+  }
+  if (!hasPermission(session.user.role, "editorial:edit")) {
+    return errorResponse(403, "FORBIDDEN", "Vous ne pouvez pas modifier ce contenu.");
+  }
+
+  let body: unknown;
+  try {
+    body = await request.json();
+  } catch {
+    return errorResponse(400, "INVALID_JSON", "Fournissez un corps JSON valide.");
+  }
+
+  const input = updateRecipeSchema.safeParse(body);
+  if (!input.success) {
+    return errorResponse(
+      400,
+      "INVALID_RECIPE",
+      "Vérifiez le titre et la description de la recette.",
+    );
+  }
+
+  const existingRecipe = await prisma.recipe.findUnique({
+    where: { id: input.data.id },
+    select: { id: true, slug: true, status: true },
+  });
+  if (!existingRecipe) {
+    return errorResponse(404, "RECIPE_NOT_FOUND", "La recette est introuvable.");
+  }
+
+  const recipe = await prisma.recipe.update({
+    where: { id: input.data.id },
+    data: { title: input.data.title, description: input.data.description },
+    select: { id: true, title: true },
+  });
+
+  revalidatePath("/");
+  revalidatePath("/editorial");
+  if (existingRecipe.status === "PUBLISHED") {
+    revalidatePath(`/recettes/${existingRecipe.slug}`);
+  }
+  return Response.json({ data: recipe });
 }

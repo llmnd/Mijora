@@ -7,8 +7,13 @@ const routeMocks = vi.hoisted(() => ({
   getSession: vi.fn(),
   hasPermission: vi.fn(),
   imageCreate: vi.fn(),
+  revalidatePath: vi.fn(),
   targetFind: vi.fn(),
   uploadImage: vi.fn(),
+}));
+
+vi.mock("next/cache", () => ({
+  revalidatePath: routeMocks.revalidatePath,
 }));
 
 vi.mock("file-type", () => ({
@@ -110,7 +115,10 @@ describe("POST /api/v1/media", () => {
     });
     routeMocks.hasPermission.mockReturnValue(true);
     routeMocks.imageCreate.mockResolvedValue({ id: "image-1" });
-    routeMocks.targetFind.mockResolvedValue({ id: "dish-1" });
+    routeMocks.targetFind.mockResolvedValue({
+      id: "dish-1",
+      status: "DRAFT",
+    });
     routeMocks.uploadImage.mockResolvedValue(undefined);
   });
 
@@ -169,10 +177,12 @@ describe("POST /api/v1/media", () => {
         data: expect.objectContaining({
           dish: { connect: { id: "dish-1" } },
           uploadedBy: { connect: { id: "editor-1" } },
+          status: "DRAFT",
         }),
         select: { id: true },
       }),
     );
+    expect(routeMocks.revalidatePath).not.toHaveBeenCalled();
     expect(result).toEqual({
       data: {
         id: "image-1",
@@ -180,6 +190,43 @@ describe("POST /api/v1/media", () => {
         url: "https://signed.example/image",
       },
     });
+  });
+
+  it("publishes a new image immediately for a published dish when the user can publish", async () => {
+    routeMocks.targetFind.mockResolvedValue({
+      id: "dish-1",
+      status: "PUBLISHED",
+    });
+
+    const response = await POST(createRequest());
+
+    expect(response.status).toBe(201);
+    expect(routeMocks.imageCreate).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({ status: "PUBLISHED" }),
+      }),
+    );
+    expect(routeMocks.revalidatePath).toHaveBeenCalledWith("/");
+  });
+
+  it("keeps a replacement image in draft when the user cannot publish", async () => {
+    routeMocks.targetFind.mockResolvedValue({
+      id: "dish-1",
+      status: "PUBLISHED",
+    });
+    routeMocks.hasPermission.mockImplementation(
+      (_role: string, permission: string) => permission === "editorial:edit",
+    );
+
+    const response = await POST(createRequest());
+
+    expect(response.status).toBe(201);
+    expect(routeMocks.imageCreate).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({ status: "DRAFT" }),
+      }),
+    );
+    expect(routeMocks.revalidatePath).not.toHaveBeenCalled();
   });
 
   it("accepts a personal image without source or licensing metadata", async () => {

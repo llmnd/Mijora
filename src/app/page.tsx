@@ -1,30 +1,38 @@
 import Link from "next/link";
 import { connection } from "next/server";
 import { ActionLink } from "@/components/ui/action-link";
-import { Reveal } from "@/components/reveal";
+import { Reveal, ThemeToggle } from "@/components/reveal";
 import { SiteHeader } from "@/components/site-header";
-import {
-  DishCarousel,
-  type CarouselDish,
-} from "@/features/discovery/dish-carousel";
+import { DishCarousel } from "@/features/discovery/dish-carousel";
 import { RecipeInspiration } from "@/features/discovery/recipe-inspiration";
-import {
-  RecipeShowcase,
-  type ShowcaseRecipe,
-} from "@/features/discovery/recipe-showcase";
+import { RecipeShowcase } from "@/features/discovery/recipe-showcase";
 import { PublicSearch } from "@/features/search/public-search";
 import { createSignedImageUrl } from "@/lib/neon-object-storage";
 import { prisma } from "@/server/db/client";
 
-const flavorNames = [
-  "Ceebu jën",
-  "Yassa",
-  "Mafé",
-  "Dibi",
-  "Thiakry",
-  "Bissap",
-  "Pastels",
-  "Soupou kandia",
+const HERO_IMAGE =
+  "https://i.pinimg.com/736x/69/64/77/696477bc3b5b238a9529def5b1cfd11f.jpg";
+const ATMOSPHERE_IMAGE =
+  "https://i.pinimg.com/1200x/7f/c3/e9/7fc3e9fcf3ab983e3deeb40954be4ea4.jpg";
+
+const THEME_SCRIPT = `try{var t=localStorage.getItem("mijora-theme");if(!t){t=matchMedia("(prefers-color-scheme: dark)").matches?"dark":"light"}document.documentElement.dataset.theme=t}catch(e){}`;
+
+const JOURNEY = [
+  {
+    n: "01",
+    title: "Explorer",
+    text: "Parcourez les plats du Sénégal et les histoires qui les accompagnent.",
+  },
+  {
+    n: "02",
+    title: "Choisir",
+    text: "Filtrez par temps disponible ou par ingrédients que vous avez déjà.",
+  },
+  {
+    n: "03",
+    title: "Cuisiner",
+    text: "Suivez une recette vérifiée, pas à pas, et partagez le repas.",
+  },
 ];
 
 export default async function HomePage() {
@@ -54,10 +62,7 @@ export default async function HomePage() {
       take: 12,
     }),
     prisma.recipe.findMany({
-      where: {
-        status: "PUBLISHED",
-        dish: { status: "PUBLISHED" },
-      },
+      where: { status: "PUBLISHED", dish: { status: "PUBLISHED" } },
       select: {
         id: true,
         title: true,
@@ -92,9 +97,7 @@ export default async function HomePage() {
         const image = dish.images[0];
         return {
           ...dish,
-          imageUrl: image
-            ? await createSignedImageUrl(image.storageKey)
-            : null,
+          imageUrl: image ? await createSignedImageUrl(image.storageKey) : null,
           imageAlt: image?.altText ?? dish.name,
         };
       }),
@@ -104,14 +107,13 @@ export default async function HomePage() {
         const image = recipe.images[0];
         return {
           ...recipe,
-          imageUrl: image
-            ? await createSignedImageUrl(image.storageKey)
-            : null,
+          imageUrl: image ? await createSignedImageUrl(image.storageKey) : null,
           imageAlt: image?.altText ?? recipe.title,
         };
       }),
     ),
   ]);
+
   const discoveryLink = dishCards.length
     ? { href: "#plats", label: "Découvrir les plats" }
     : recipeCards.length
@@ -119,8 +121,9 @@ export default async function HomePage() {
       : { href: "#approche", label: "Découvrir la démarche" };
   const featuredRecipe = recipeCards[0];
   const featuredDish = dishCards[0];
-  const heroImage = featuredRecipe?.imageUrl ?? featuredDish?.imageUrl;
+  const heroImage = HERO_IMAGE;
   const featuredTitle = featuredRecipe?.title ?? featuredDish?.name;
+
   const recipeIdeas = recipeCards.map((recipe) => ({
     id: recipe.id,
     title: recipe.title,
@@ -137,26 +140,6 @@ export default async function HomePage() {
       isOptional,
     })),
   }));
-  const carouselDishes: CarouselDish[] = dishCards.map((dish) => ({
-    id: dish.id,
-    name: dish.name,
-    description: dish.description,
-    imageUrl: dish.imageUrl,
-    imageAlt: dish.imageAlt,
-    recipe: dish.recipes[0] ?? null,
-  }));
-  const showcaseRecipes: ShowcaseRecipe[] = recipeCards.map((recipe) => ({
-    id: recipe.id,
-    title: recipe.title,
-    slug: recipe.slug,
-    description: recipe.description,
-    dishName: recipe.dish.name,
-    imageUrl: recipe.imageUrl,
-    imageAlt: recipe.imageAlt,
-    preparationTimeMinutes: recipe.preparationTimeMinutes,
-    cookingTimeMinutes: recipe.cookingTimeMinutes,
-    servings: recipe.servings,
-  }));
   const dishIdeas = dishCards.map((dish) => ({
     id: dish.id,
     title: dish.name,
@@ -170,9 +153,31 @@ export default async function HomePage() {
     ingredients: [],
     isDishOnly: true,
   }));
+  const showcaseRecipes = recipeCards.map((recipe) => ({
+    id: recipe.id,
+    title: recipe.title,
+    slug: recipe.slug,
+    description: recipe.description,
+    dishName: recipe.dish.name,
+    imageUrl: recipe.imageUrl,
+    imageAlt: recipe.imageAlt,
+    preparationTimeMinutes: recipe.preparationTimeMinutes,
+    cookingTimeMinutes: recipe.cookingTimeMinutes,
+    servings: recipe.servings,
+  }));
+  const carouselDishes = dishCards.map((dish) => ({
+    id: dish.id,
+    name: dish.name,
+    description: dish.description,
+    imageUrl: dish.imageUrl,
+    imageAlt: dish.imageAlt,
+    recipe: dish.recipes[0] ?? null,
+  }));
 
   return (
-    <main className="page-shell homepage" id="top">
+    <main className="page-shell homepage">
+      <script dangerouslySetInnerHTML={{ __html: THEME_SCRIPT }} />
+      <ThemeToggle />
       <SiteHeader />
 
       <section aria-labelledby="hero-title" className="hero">
@@ -184,21 +189,24 @@ export default async function HomePage() {
             aria-hidden="true"
             className="hero-image"
             fetchPriority="high"
+            referrerPolicy="no-referrer"
             src={heroImage}
           />
         ) : null}
         <div className="hero-content">
-          <p className="eyebrow hero-rise">Découverte culinaire · Sénégal</p>
-          <h1 className="hero-rise" id="hero-title">
+          <p className="eyebrow hero-rise" style={{ animationDelay: "80ms" }}>
+            Découverte culinaire · Sénégal
+          </p>
+          <h1 className="hero-rise" id="hero-title" style={{ animationDelay: "180ms" }}>
             Le goût des
             <br />
             <span>bonnes idées.</span>
           </h1>
-          <p className="hero-copy hero-rise">
+          <p className="hero-copy hero-rise" style={{ animationDelay: "320ms" }}>
             Des plats qui racontent, des recettes pour se retrouver. Trouvez
             l’inspiration pour votre prochaine table.
           </p>
-          <div className="hero-actions hero-rise">
+          <div className="hero-actions hero-rise" style={{ animationDelay: "460ms" }}>
             <ActionLink href={discoveryLink.href}>
               Découvrir le catalogue <span aria-hidden="true">↗</span>
             </ActionLink>
@@ -210,58 +218,38 @@ export default async function HomePage() {
         {featuredTitle ? (
           <a
             className="hero-feature"
-            href={
-              featuredRecipe ? `/recettes/${featuredRecipe.slug}` : "#plats"
-            }
+            href={featuredRecipe ? `/recettes/${featuredRecipe.slug}` : "#plats"}
           >
             <span>À découvrir</span>
             <strong>{featuredTitle}</strong>
             <span aria-hidden="true">↗</span>
           </a>
         ) : null}
-        <a
-          aria-label="Défiler vers les idées de recettes"
-          className="hero-scroll-cue"
-          href="#inspiration"
-        >
-          <span aria-hidden="true" />
+        <a aria-label="Descendre" className="hero-scroll-cue" href="#envie">
+          <span />
         </a>
       </section>
 
-      <section aria-label="Saveurs du Sénégal" className="flavor-marquee">
-        <div className="flavor-marquee-track">
-          {[0, 1].map((copy) => (
-            <div
-              aria-hidden={copy === 1}
-              className="flavor-marquee-group"
-              key={copy}
-            >
-              {flavorNames.map((name) => (
-                <span key={`${copy}-${name}`}>
-                  {name}
-                  <i>✦</i>
-                </span>
-              ))}
-            </div>
-          ))}
-        </div>
-      </section>
+      <div aria-hidden="true" className="flavor-marquee">
+      </div>
 
-      <Reveal className="homepage-reveal">
-        <RecipeInspiration recipes={recipeIdeas} dishes={dishIdeas} />
-      </Reveal>
+      <div id="envie">
+        <Reveal>
+          <RecipeInspiration recipes={recipeIdeas} dishes={dishIdeas} />
+        </Reveal>
+      </div>
 
-      <Reveal className="homepage-reveal">
+      <Reveal>
         <PublicSearch />
       </Reveal>
 
       {carouselDishes.length ? (
-        <Reveal className="homepage-reveal">
-          <section
-            aria-labelledby="dishes-title"
-            className="public-recipes-section"
-            id="plats"
-          >
+        <section
+          aria-labelledby="dishes-title"
+          className="public-recipes-section"
+          id="plats"
+        >
+          <Reveal>
             <div className="public-recipes-heading">
               <div>
                 <p className="eyebrow">Découvrir</p>
@@ -272,17 +260,19 @@ export default async function HomePage() {
                 les recettes disponibles pour les cuisiner.
               </p>
             </div>
+          </Reveal>
+          <Reveal delay={120}>
             <DishCarousel dishes={carouselDishes} />
-          </section>
-        </Reveal>
+          </Reveal>
+        </section>
       ) : null}
 
-      <Reveal className="homepage-reveal">
-        <section
-          aria-labelledby="recipes-title"
-          className="public-recipes-section"
-          id="recettes"
-        >
+      <section
+        aria-labelledby="recipes-title"
+        className="public-recipes-section"
+        id="recettes"
+      >
+        <Reveal>
           <div className="public-recipes-heading">
             <div>
               <p className="eyebrow">À cuisiner</p>
@@ -293,50 +283,53 @@ export default async function HomePage() {
               trouver l’inspiration.
             </p>
           </div>
+        </Reveal>
 
-          {showcaseRecipes.length ? (
+        {recipeCards.length ? (
+          <Reveal delay={100}>
             <RecipeShowcase recipes={showcaseRecipes} />
-          ) : (
-            <p className="catalogue-note">
-              Les premières recettes arrivent bientôt. Aucun contenu non
-              vérifié n’est publié.
-            </p>
-          )}
-        </section>
-      </Reveal>
+          </Reveal>
+        ) : (
+          <p className="catalogue-note">
+            Les premières recettes arrivent bientôt. Aucun contenu non vérifié
+            n’est publié.
+          </p>
+        )}
+      </section>
 
-      <Reveal className="homepage-reveal">
-        <section aria-labelledby="journey-title" className="journey">
-          <div>
-            <p className="eyebrow">De l’envie à l’assiette</p>
-            <h2 id="journey-title">Une idée, quelques ingrédients, et c’est parti.</h2>
-          </div>
-          <ol className="journey-steps">
-            <li>
-              <span aria-hidden="true" className="journey-number">01</span>
-              <h3>Explorer</h3>
-              <p>Parcourez des plats et des recettes ancrés dans les cuisines d’ici.</p>
+      <section aria-labelledby="journey-title" className="journey">
+        <Reveal>
+          <p className="eyebrow">Comment ça marche</p>
+          <h2 id="journey-title">De l’envie à l’assiette.</h2>
+        </Reveal>
+        <ol className="journey-steps">
+          {JOURNEY.map((step, i) => (
+            <li key={step.n}>
+              <Reveal delay={i * 120}>
+                <span className="journey-number">{step.n}</span>
+                <h3>{step.title}</h3>
+                <p>{step.text}</p>
+              </Reveal>
             </li>
-            <li>
-              <span aria-hidden="true" className="journey-number">02</span>
-              <h3>Choisir</h3>
-              <p>Indiquez vos ingrédients et votre temps pour trouver une piste.</p>
-            </li>
-            <li>
-              <span aria-hidden="true" className="journey-number">03</span>
-              <h3>Cuisiner</h3>
-              <p>Suivez une recette, adaptez-la et partagez un bon moment.</p>
-            </li>
-          </ol>
-        </section>
-      </Reveal>
+          ))}
+        </ol>
+      </section>
 
-      <Reveal className="homepage-reveal">
+      <Reveal>
         <section
           aria-labelledby="approach-title"
           className="approach"
           id="approche"
         >
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            alt=""
+            aria-hidden="true"
+            className="approach-bg"
+            loading="lazy"
+            referrerPolicy="no-referrer"
+            src={ATMOSPHERE_IMAGE}
+          />
           <div className="approach-heading">
             <p className="eyebrow">Notre intention</p>
             <h2 id="approach-title">La cuisine nous rapproche.</h2>
@@ -360,7 +353,7 @@ export default async function HomePage() {
           <a href="#plats">Les plats</a>
           <a href="#recettes">Les recettes</a>
           <a href="#approche">Notre intention</a>
-          <a href="#top">Retour en haut ↑</a>
+          <a href="#">Retour en haut ↑</a>
         </nav>
         <p className="footer-credit">Pensé au Sénégal · Fait pour être partagé</p>
       </footer>

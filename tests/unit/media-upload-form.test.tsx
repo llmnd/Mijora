@@ -3,6 +3,12 @@ import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 import { ImageUploadForm } from "@/features/media/image-upload-form";
 
+const refresh = vi.fn();
+
+vi.mock("next/navigation", () => ({
+  useRouter: () => ({ refresh }),
+}));
+
 describe("image upload form", () => {
   it("submits image credits and the target to the media endpoint", async () => {
     const user = userEvent.setup();
@@ -52,6 +58,7 @@ describe("image upload form", () => {
     expect((body as FormData).get("ownerId")).toBe("dish-1");
     expect((body as FormData).get("creator")).toBe("Awa");
     await waitFor(() => expect(onUploaded).toHaveBeenCalledWith(image));
+    expect(refresh).toHaveBeenCalledOnce();
   });
 
   it("allows uploading a personal image without source or license fields", async () => {

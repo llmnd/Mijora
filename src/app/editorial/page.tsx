@@ -76,14 +76,13 @@ export default async function EditorialPage() {
       take: 12,
     }),
     prisma.recipe.findMany({
-      where: { status: { not: "ARCHIVED" } },
       select: {
         id: true,
         title: true,
         slug: true,
         description: true,
         status: true,
-        dish: { select: { name: true, status: true } },
+        dish: { select: { id: true, name: true, status: true } },
         sources: {
           take: 1,
           select: { source: { select: { title: true, url: true } } },
@@ -157,6 +156,7 @@ export default async function EditorialPage() {
       return {
         id: dish.id,
         contentType: "dish" as const,
+        dishId: null,
         title: dish.name,
         subtitle: "Plat sénégalais",
         description: dish.description,
@@ -176,6 +176,7 @@ export default async function EditorialPage() {
       return {
         id: recipe.id,
         contentType: "recipe" as const,
+        dishId: recipe.dish.id,
         title: recipe.title,
         subtitle: `Plat · ${recipe.dish.name}`,
         description: recipe.description,

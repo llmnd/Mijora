@@ -1,5 +1,6 @@
 import { fileTypeFromBuffer } from "file-type";
 import { z } from "zod";
+import { revalidatePath } from "next/cache";
 import {
   createImageObjectKey,
   createSignedImageUrl,
@@ -70,32 +71,32 @@ function isAllowedOrigin(requestOrigin: string | null): boolean {
   }
 }
 
-async function targetExists(
+async function targetIsPublished(
   ownerType: MediaOwnerType,
   ownerId: string,
-): Promise<boolean> {
+): Promise<boolean | null> {
   switch (ownerType) {
-    case "dish":
-      return Boolean(
-        await prisma.dish.findUnique({
-          where: { id: ownerId },
-          select: { id: true },
-        }),
-      );
-    case "ingredient":
-      return Boolean(
-        await prisma.ingredient.findUnique({
-          where: { id: ownerId },
-          select: { id: true },
-        }),
-      );
-    case "recipe":
-      return Boolean(
-        await prisma.recipe.findUnique({
-          where: { id: ownerId },
-          select: { id: true },
-        }),
-      );
+    case "dish": {
+      const target = await prisma.dish.findUnique({
+        where: { id: ownerId },
+        select: { status: true },
+      });
+      return target ? target.status === "PUBLISHED" : null;
+    }
+    case "ingredient": {
+      const target = await prisma.ingredient.findUnique({
+        where: { id: ownerId },
+        select: { status: true },
+      });
+      return target ? target.status === "PUBLISHED" : null;
+    }
+    case "recipe": {
+      const target = await prisma.recipe.findUnique({
+        where: { id: ownerId },
+        select: { status: true },
+      });
+      return target ? target.status === "PUBLISHED" : null;
+    }
   }
 }
 
@@ -103,6 +104,7 @@ async function createImageRecord(
   metadata: UploadMetadata,
   storageKey: string,
   userId: string,
+  publishImmediately: boolean,
 ): Promise<{ id: string }> {
   // Keep the optional form compatible with databases awaiting the nullable-columns migration.
   const imageCredits = {
@@ -110,6 +112,9 @@ async function createImageRecord(
     provenance: metadata.provenance ?? "",
     license: metadata.license ?? "",
   };
+  const imageStatus: "PUBLISHED" | "DRAFT" = publishImmediately
+    ? "PUBLISHED"
+    : "DRAFT";
   const imageData = {
     storageKey,
     kind: metadata.kind,
@@ -117,6 +122,7 @@ async function createImageRecord(
     attribution: metadata.attribution,
     usageTerms: metadata.usageTerms,
     altText: metadata.altText,
+    status: imageStatus,
   };
 
   switch (metadata.ownerType) {
@@ -216,9 +222,16 @@ export async function POST(request: Request): Promise<Response> {
   }
 
   const metadata = metadataResult.data;
-  if (!(await targetExists(metadata.ownerType, metadata.ownerId))) {
+  const ownerIsPublished = await targetIsPublished(
+    metadata.ownerType,
+    metadata.ownerId,
+  );
+  if (ownerIsPublished === null) {
     return errorResponse(404, "CONTENT_NOT_FOUND", "Target content was not found.");
   }
+  const publishImmediately =
+    ownerIsPublished &&
+    hasPermission(session.user.role, "editorial:publish");
 
   const bytes = new Uint8Array(await file.arrayBuffer());
   const detectedType = await fileTypeFromBuffer(bytes);
@@ -240,14 +253,16 @@ export async function POST(request: Request): Promise<Response> {
   );
   await uploadImage({ key, bytes, contentType: detectedType.mime });
 
+  let data: { id: string; key: string; url: string };
   try {
     const url = await createSignedImageUrl(key);
-    const image = await createImageRecord(metadata, key, session.user.id);
-
-    return Response.json(
-      { data: { id: image.id, key, url } },
-      { status: 201 },
+    const image = await createImageRecord(
+      metadata,
+      key,
+      session.user.id,
+      publishImmediately,
     );
+    data = { id: image.id, key, url };
   } catch (error) {
     try {
       await deleteImage(key);
@@ -259,4 +274,10 @@ export async function POST(request: Request): Promise<Response> {
     }
     throw error;
   }
+
+  if (publishImmediately) {
+    revalidatePath("/");
+  }
+
+  return Response.json({ data }, { status: 201 });
 }

@@ -1,5 +1,6 @@
 "use client";
 
+import { useRouter } from "next/navigation";
 import { useState, type FormEvent } from "react";
 import type {
   MediaOwnerType,
@@ -57,6 +58,7 @@ export function ImageUploadForm({
   ownerId,
   onUploaded,
 }: ImageUploadFormProps) {
+  const router = useRouter();
   const [formState, setFormState] = useState<FormState>({ status: "idle" });
   const [isUploading, setIsUploading] = useState(false);
 
@@ -109,6 +111,7 @@ export function ImageUploadForm({
 
       setFormState({ status: "success", image: body.data });
       onUploaded?.(body.data);
+      router.refresh();
     } catch {
       setFormState({
         status: "error",
