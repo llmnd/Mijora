@@ -104,12 +104,16 @@ async function createImageRecord(
   storageKey: string,
   userId: string,
 ): Promise<{ id: string }> {
+  // Keep the optional form compatible with databases awaiting the nullable-columns migration.
+  const imageCredits = {
+    creator: metadata.creator ?? "",
+    provenance: metadata.provenance ?? "",
+    license: metadata.license ?? "",
+  };
   const imageData = {
     storageKey,
     kind: metadata.kind,
-    creator: metadata.creator,
-    provenance: metadata.provenance,
-    license: metadata.license,
+    ...imageCredits,
     attribution: metadata.attribution,
     usageTerms: metadata.usageTerms,
     altText: metadata.altText,

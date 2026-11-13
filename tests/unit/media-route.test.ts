@@ -190,9 +190,9 @@ describe("POST /api/v1/media", () => {
       expect.objectContaining({
         data: expect.objectContaining({
           dish: { connect: { id: "dish-1" } },
-          creator: null,
-          provenance: null,
-          license: null,
+          creator: "",
+          provenance: "",
+          license: "",
         }),
       }),
     );

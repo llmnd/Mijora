@@ -54,6 +54,17 @@ describe("home page", () => {
     expect(
       screen.getByRole("navigation", { name: "Navigation principale" }),
     ).toBeInTheDocument();
+    expect(screen.getByRole("region", { name: "Saveurs du Sénégal" })).toBeVisible();
+    expect(
+      screen.getByRole("heading", {
+        level: 2,
+        name: "Une idée, quelques ingrédients, et c’est parti.",
+      }),
+    ).toBeVisible();
+    expect(screen.getByRole("link", { name: "Retour en haut ↑" })).toHaveAttribute(
+      "href",
+      "#top",
+    );
   });
 
   it("shows links to published recipes for visitors", async () => {
@@ -137,7 +148,7 @@ describe("home page", () => {
       screen.getByText("Riz au poisson accompagné de légumes."),
     ).toBeInTheDocument();
     expect(
-      screen.getByText("La recette détaillée arrive bientôt."),
+      screen.getByText("Recette bientôt disponible"),
     ).toBeInTheDocument();
     expect(
       screen.getByRole("link", { name: "Découvrir le catalogue" }),
